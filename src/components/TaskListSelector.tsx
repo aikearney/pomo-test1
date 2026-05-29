@@ -153,7 +153,6 @@ export function TaskListSelector({
     onCreateTaskList(newListName.trim())
     setNewListName('')
     setIsCreating(false)
-    toast.success('Task list created')
   }
 
   const handleRename = (listId: string) => {
@@ -164,14 +163,12 @@ export function TaskListSelector({
     onRenameTaskList(listId, editingName.trim())
     setEditingListId(null)
     setEditingName('')
-    toast.success('Task list renamed')
   }
 
   const handleDelete = () => {
     if (deleteConfirmListId) {
       onDeleteTaskList(deleteConfirmListId)
       setDeleteConfirmListId(null)
-      toast.success('Task list deleted')
     }
   }
 
