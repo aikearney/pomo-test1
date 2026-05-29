@@ -12,6 +12,13 @@
 
 | Name | Role | Charter | Status |
 |------|------|---------|--------|
+| Ripley | Lead | .squad/agents/ripley/charter.md | 🟢 Active |
+| Dallas | Frontend Dev | .squad/agents/dallas/charter.md | 🟢 Active |
+| Parker | Backend Dev | .squad/agents/parker/charter.md | 🟢 Active |
+| Ash | DevOps | .squad/agents/ash/charter.md | 🟢 Active |
+| Lambert | Tester | .squad/agents/lambert/charter.md | 🟢 Active |
+| Scribe | Session Logger | .squad/agents/scribe/charter.md | 🟢 Active |
+| Ralph | Work Monitor | .squad/agents/ralph/charter.md | 🟢 Active |
 
 
 ## Coding Agent
@@ -51,3 +58,5 @@
 
 - **Project:** pomo-test1
 - **Created:** 2026-05-29
+- **User:** aisling
+- **Stack:** React frontend, Node/TypeScript Azure Functions APIs, Azure App Service hosting target, Azure Cosmos DB backend

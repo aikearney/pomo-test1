@@ -1,4 +1,24 @@
 {
-  "universe_usage_history": [],
-  "assignment_cast_snapshots": {}
+  "universe_usage_history": [
+    {
+      "assignment_id": "2026-05-29-pomo-test1-init",
+      "universe": "Alien",
+      "created_at": "2026-05-29T16:16:19Z"
+    }
+  ],
+  "assignment_cast_snapshots": {
+    "2026-05-29-pomo-test1-init": {
+      "universe": "Alien",
+      "created_at": "2026-05-29T16:16:19Z",
+      "agents": {
+        "ripley": "Ripley",
+        "dallas": "Dallas",
+        "parker": "Parker",
+        "ash": "Ash",
+        "lambert": "Lambert",
+        "scribe": "Scribe",
+        "ralph": "Ralph"
+      }
+    }
+  }
 }

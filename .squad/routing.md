@@ -6,12 +6,13 @@ How to decide who handles what.
 
 | Work Type | Route To | Examples |
 |-----------|----------|----------|
-| {domain 1} | {Name} | {example tasks} |
-| {domain 2} | {Name} | {example tasks} |
-| {domain 3} | {Name} | {example tasks} |
-| Code review | {Name} | Review PRs, check quality, suggest improvements |
-| Testing | {Name} | Write tests, find edge cases, verify fixes |
-| Scope & priorities | {Name} | What to build next, trade-offs, decisions |
+| Architecture & migration strategy | Ripley | Hosting migration approach, API shape, data boundaries |
+| Frontend React implementation | Dallas | Keep UI unchanged while switching runtime/API base URLs |
+| Backend REST APIs & Cosmos integration | Parker | CRUD endpoints, Cosmos SDK usage, data validation |
+| Azure deployment & runtime config | Ash | App Service startup, env vars, build/runtime settings |
+| Code review | Ripley | Review PRs, check quality, suggest improvements |
+| Testing | Lambert | Write tests, find edge cases, verify fixes |
+| Scope & priorities | Ripley | What to build next, trade-offs, decisions |
 | Session logging | Scribe | Automatic — never needs routing |
 
 ## Issue Routing
