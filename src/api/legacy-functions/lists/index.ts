@@ -1,5 +1,5 @@
 import { v4 as uuid } from "uuid";
-import { lists } from "../shared/cosmos";
+import { getListsContainer } from "../shared/cosmos";
 import { getUserId } from "../shared/auth";
 
 module.exports = async function (context: any, req: any) {
@@ -26,6 +26,7 @@ module.exports = async function (context: any, req: any) {
     return;
   }
 
+  const lists = getListsContainer();
   const query = `SELECT * FROM c WHERE c.userId = @userId ORDER BY c.order ASC`;
   const { resources } = await lists.items
     .query({ query, parameters: [{ name: "@userId", value: userId }] })
@@ -36,11 +37,18 @@ module.exports = async function (context: any, req: any) {
 }
 
   if (method === "POST") {
+    if (!userId) {
+      context.res = { status: 401, body: "Authentication required" };
+      return;
+    }
+
     const body = req.body || {};
     if (!body.name) {
       context.res = { status: 400, body: "Missing list name" };
       return;
     }
+
+    const lists = getListsContainer();
 
     const newList = {
       id: uuid(),

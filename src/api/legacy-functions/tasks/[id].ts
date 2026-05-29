@@ -1,10 +1,16 @@
-import { tasks } from "../shared/cosmos";
+import { getTasksContainer } from "../shared/cosmos";
 import { getUserId } from "../shared/auth";
 
 module.exports = async function (context: any, req: any) {
   const method = req.method;
   const taskId = context.bindingData.id;
   const userId = getUserId(req);
+  if (!userId) {
+    context.res = { status: 401, body: "Authentication required" };
+    return;
+  }
+
+  const tasks = getTasksContainer();
 
   const { resource: task } = await tasks.item(taskId, userId).read();
   if (!task) {

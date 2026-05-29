@@ -1,10 +1,16 @@
 import { v4 as uuid } from "uuid";
-import { tasks } from "../shared/cosmos";
+import { getTasksContainer } from "../shared/cosmos";
 import { getUserId } from "../shared/auth";
 
 module.exports = async function (context: any, req: any) {
   const method = req.method;
   const userId = getUserId(req);
+  if (!userId) {
+    context.res = { status: 401, body: "Authentication required" };
+    return;
+  }
+
+  const tasks = getTasksContainer();
 
   if (method === "GET") {
     const query = `SELECT * FROM c WHERE c.userId = @userId ORDER BY c.createdAt DESC`;
@@ -18,10 +24,16 @@ module.exports = async function (context: any, req: any) {
 
   if (method === "POST") {
     const body = req.body || {};
+    const taskName = body.name ?? body.title;
+    if (!taskName) {
+      context.res = { status: 400, body: "Missing task name" };
+      return;
+    }
+
     const newTask = {
       id: uuid(),
       userId,
-      title: body.title,
+      name: taskName,
       createdAt: Date.now(),
       completed: false
     };

@@ -5,11 +5,11 @@
     "moduleResolution": "node16",
     "esModuleInterop": true,
     "strict": true,
-    "types": ["node", "@azure/functions"],
+    "types": ["node"],
     "skipLibCheck": true,
     "rootDir": ".",
-    "outDir": ".",
+    "outDir": "dist",
     "ignoreDeprecations": "5.0"
   },
-  "include": ["**/*.ts"]
+  "include": ["server.ts", "shared/**/*.ts"]
 }

@@ -7,9 +7,14 @@
         "dev": "vite",
         "kill": "fuser -k 5000/tcp",
         "build": "tsc -b --noCheck && vite build",
+        "build:api": "npm --prefix src/api run build",
+        "build:app": "npm run build && npm run build:api",
+        "smoke:api": "node scripts/api-smoke-test.mjs",
+        "smoke:api:auth": "API_SMOKE_TEST_USER_ID=${API_SMOKE_TEST_USER_ID:-smoke-test-user} node scripts/api-smoke-test.mjs",
         "lint": "eslint .",
         "optimize": "vite optimize",
-        "preview": "vite preview"
+        "preview": "vite preview",
+        "start": "npm --prefix src/api run start"
     },
     "dependencies": {
         "@github/spark": ">=0.43.1 <1",
