@@ -17,7 +17,7 @@ import {
 import { TimerDisplay } from '@/components/TimerDisplay'
 import { TaskItem } from '@/components/TaskItem'
 import { StatisticsDialog } from '@/components/StatisticsDialog'
-// import TaskListSelector from '@/components/TaskListSelector'
+import { TaskListSelector } from '@/components/TaskListSelector'
 import { TaskTemplatesDialog } from '@/components/TaskTemplatesDialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -1514,7 +1514,6 @@ function App() {
           } space-y-4 relative z-10`}
         >
           <div className="flex items-center justify-between">
-            {/* 
             <TaskListSelector
               taskLists={taskLists || []}
               currentTaskListId={currentTaskListId || 'default'}
@@ -1530,7 +1529,6 @@ function App() {
               onOpacityChange={setBackgroundOpacity}
               onUpload={handleBackgroundUpload}
             />
-            */}
             {!isCompact && (
               <h1 className="font-display text-2xl font-bold text-foreground absolute left-1/2 -translate-x-1/2">
                 Pomodoro Timer
