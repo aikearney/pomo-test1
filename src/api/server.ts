@@ -1,4 +1,4 @@
-import express, { type Request } from "express";
+import express, { type Request, type Response, type NextFunction, type RequestHandler } from "express";
 import path from "node:path";
 import { v4 as uuid } from "uuid";
 import { getUserId } from "./shared/auth";
@@ -16,7 +16,25 @@ function getAuthenticatedUserId(req: Request): string | undefined {
   return getUserId({ headers: req.headers });
 }
 
-app.get("/api/lists", async (req, res) => {
+// Wrapper to catch Cosmos connection errors gracefully
+function asyncHandler(fn: (req: Request, res: Response, next?: NextFunction) => Promise<void>): RequestHandler {
+  return (req: Request, res: Response, next?: NextFunction) => {
+    Promise.resolve(fn(req, res, next)).catch((error) => {
+      console.error("API Error:", error.message);
+      if (error.message.includes("Missing required setting") || error.message.includes("COSMOS")) {
+        res.status(503).json({
+          error: "Service unavailable",
+          message: "Database connection not configured. Frontend still available.",
+          details: process.env.NODE_ENV === "development" ? error.message : undefined,
+        });
+      } else {
+        res.status(500).json({ error: "Internal server error" });
+      }
+    });
+  };
+}
+
+app.get("/api/lists", asyncHandler(async (req, res) => {
   const userId = getAuthenticatedUserId(req);
 
   if (!userId) {
@@ -42,9 +60,9 @@ app.get("/api/lists", async (req, res) => {
     .fetchAll();
 
   res.status(200).json(resources);
-});
+}));
 
-app.post("/api/lists", async (req, res) => {
+app.post("/api/lists", asyncHandler(async (req, res) => {
   const userId = getAuthenticatedUserId(req);
   if (!userId) {
     res.status(401).send("Authentication required");
@@ -58,7 +76,7 @@ app.post("/api/lists", async (req, res) => {
 
   const newList = {
     id: uuid(),
-    userId,
+    userId: userId as string,
     name: req.body.name,
     createdAt: Date.now(),
     color: req.body.color ?? null,
@@ -68,18 +86,18 @@ app.post("/api/lists", async (req, res) => {
 
   await getListsContainer().items.create(newList);
   res.status(201).json(newList);
-});
+}));
 
-app.patch("/api/lists/:id", async (req, res) => {
+app.patch("/api/lists/:id", asyncHandler(async (req, res) => {
   const userId = getAuthenticatedUserId(req);
   if (!userId) {
     res.status(401).send("Authentication required");
     return;
   }
 
-  const listId = req.params.id;
+  const listId = req.params.id as string;
   const lists = getListsContainer();
-  const { resource: list } = await lists.item(listId, userId).read();
+  const { resource: list } = await lists.item(listId, userId as string).read();
 
   if (!list) {
     res.status(404).send("List not found");
@@ -87,22 +105,22 @@ app.patch("/api/lists/:id", async (req, res) => {
   }
 
   const updated = { ...list, ...(req.body ?? {}) };
-  await lists.item(listId, userId).replace(updated);
+  await lists.item(listId, userId as string).replace(updated);
   res.status(200).json(updated);
-});
+}));
 
-app.delete("/api/lists/:id", async (req, res) => {
+app.delete("/api/lists/:id", asyncHandler(async (req, res) => {
   const userId = getAuthenticatedUserId(req);
   if (!userId) {
     res.status(401).send("Authentication required");
     return;
   }
 
-  const listId = req.params.id;
+  const listId = req.params.id as string;
   const lists = getListsContainer();
   const tasks = getTasksContainer();
 
-  const { resource: list } = await lists.item(listId, userId).read();
+  const { resource: list } = await lists.item(listId, userId as string).read();
   if (!list) {
     res.status(404).send("List not found");
     return;
@@ -119,24 +137,24 @@ app.delete("/api/lists/:id", async (req, res) => {
     })
     .fetchAll();
 
-  await Promise.all(resources.map((task) => tasks.item(task.id, userId).delete()));
-  await lists.item(listId, userId).delete();
+  await Promise.all(resources.map((task) => tasks.item(task.id, userId as string).delete()));
+  await lists.item(listId, userId as string).delete();
 
   res.status(204).send();
-});
+}));
 
-app.get("/api/lists/:id/tasks", async (req, res) => {
+app.get("/api/lists/:id/tasks", asyncHandler(async (req, res) => {
   const userId = getAuthenticatedUserId(req);
   if (!userId) {
     res.status(401).send("Authentication required");
     return;
   }
 
-  const listId = req.params.id;
+  const listId = req.params.id as string;
   const lists = getListsContainer();
   const tasks = getTasksContainer();
 
-  const { resource: list } = await lists.item(listId, userId).read();
+  const { resource: list } = await lists.item(listId, userId as string).read();
   if (!list) {
     res.status(404).send("List not found");
     return;
@@ -155,19 +173,19 @@ app.get("/api/lists/:id/tasks", async (req, res) => {
     .fetchAll();
 
   res.status(200).json(resources);
-});
+}));
 
-app.post("/api/lists/:id/tasks", async (req, res) => {
+app.post("/api/lists/:id/tasks", asyncHandler(async (req, res) => {
   const userId = getAuthenticatedUserId(req);
   if (!userId) {
     res.status(401).send("Authentication required");
     return;
   }
 
-  const listId = req.params.id;
+  const listId = req.params.id as string;
   const lists = getListsContainer();
 
-  const { resource: list } = await lists.item(listId, userId).read();
+  const { resource: list } = await lists.item(listId, userId as string).read();
   if (!list) {
     res.status(404).send("List not found");
     return;
@@ -180,7 +198,7 @@ app.post("/api/lists/:id/tasks", async (req, res) => {
 
   const newTask = {
     id: uuid(),
-    userId,
+    userId: userId as string,
     listId,
     name: req.body.name,
     iterations: req.body.iterations ?? 1,
@@ -193,18 +211,18 @@ app.post("/api/lists/:id/tasks", async (req, res) => {
 
   await getTasksContainer().items.create(newTask);
   res.status(201).json(newTask);
-});
+}));
 
-app.patch("/api/tasks/:id", async (req, res) => {
+app.patch("/api/tasks/:id", asyncHandler(async (req, res) => {
   const userId = getAuthenticatedUserId(req);
   if (!userId) {
     res.status(401).send("Authentication required");
     return;
   }
 
-  const taskId = req.params.id;
+  const taskId = req.params.id as string;
   const tasks = getTasksContainer();
-  const { resource: task } = await tasks.item(taskId, userId).read();
+  const { resource: task } = await tasks.item(taskId, userId as string).read();
 
   if (!task) {
     res.status(404).send("Task not found");
@@ -212,29 +230,29 @@ app.patch("/api/tasks/:id", async (req, res) => {
   }
 
   const updated = { ...task, ...(req.body ?? {}) };
-  await tasks.item(taskId, userId).replace(updated);
+  await tasks.item(taskId, userId as string).replace(updated);
   res.status(200).json(updated);
-});
+}));
 
-app.delete("/api/tasks/:id", async (req, res) => {
+app.delete("/api/tasks/:id", asyncHandler(async (req, res) => {
   const userId = getAuthenticatedUserId(req);
   if (!userId) {
     res.status(401).send("Authentication required");
     return;
   }
 
-  const taskId = req.params.id;
+  const taskId = req.params.id as string;
   const tasks = getTasksContainer();
-  const { resource: task } = await tasks.item(taskId, userId).read();
+  const { resource: task } = await tasks.item(taskId, userId as string).read();
 
   if (!task) {
     res.status(404).send("Task not found");
     return;
   }
 
-  await tasks.item(taskId, userId).delete();
+  await tasks.item(taskId, userId as string).delete();
   res.status(204).send();
-});
+}));
 
 app.use("/api", (_req, res) => {
   res.status(404).send("Not found");
