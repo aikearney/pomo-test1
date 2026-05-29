@@ -92,6 +92,7 @@ function App() {
     null
   )
   const [tasks, setTasks] = useState<Task[]>([])
+  const [tasksByListId, setTasksByListId] = useState<Record<string, Task[]>>({})
   const [isLoadingLists, setIsLoadingLists] = useState(false)
   const [isLoadingTasks, setIsLoadingTasks] = useState(false)
   const [isAnonymousMode, setIsAnonymousMode] = useState(false)
@@ -247,6 +248,15 @@ function App() {
       localStorage.setItem('pomodoro-current-list-id', currentTaskListId)
     }
   }, [currentTaskListId])
+
+  // Keep a per-list task cache so timer task info remains visible after list switching.
+  useEffect(() => {
+    if (!currentTaskListId) return
+    setTasksByListId((prev) => ({
+      ...prev,
+      [currentTaskListId]: tasks || [],
+    }))
+  }, [currentTaskListId, tasks])
 
   // Load tasks when current list changes
   useEffect(() => {
@@ -1528,13 +1538,10 @@ function App() {
       return tasksList.find((t) => t.id === timerState.currentTaskId)
     }
 
-    const timerTaskList = (taskLists || []).find(
-      (list) => list.id === currentTaskListIdForTimer
-    )
-    // @ts-expect-error: older TaskList type may not have tasks anymore; adjust when you update types
-    return timerTaskList?.tasks?.find(
-      (t: Task) => t.id === timerState.currentTaskId
-    )
+    if (!currentTaskListIdForTimer) return null
+
+    const timerListTasks = tasksByListId[currentTaskListIdForTimer] || []
+    return timerListTasks.find((t) => t.id === timerState.currentTaskId) || null
   })()
 
   const currentTaskListName = (() => {
