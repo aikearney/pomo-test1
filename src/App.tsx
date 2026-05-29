@@ -95,6 +95,10 @@ function App() {
   const [isLoadingLists, setIsLoadingLists] = useState(false)
   const [isLoadingTasks, setIsLoadingTasks] = useState(false)
   const [isAnonymousMode, setIsAnonymousMode] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [authDisplayName, setAuthDisplayName] = useState<string | null>(null)
+
+  const AUTH_PROVIDER = (import.meta.env.VITE_AUTH_PROVIDER || 'aad').trim()
 
   const LOCAL_LISTS_KEY = 'pomodoro-local-lists'
 
@@ -123,6 +127,60 @@ function App() {
   const persistTasksForList = (listId: string, nextTasks: Task[]) => {
     localStorage.setItem(getLocalTasksStorageKey(listId), JSON.stringify(nextTasks))
   }
+
+  const redirectToLogin = () => {
+    const redirect = encodeURIComponent(`${window.location.pathname}${window.location.search}`)
+    window.location.assign(`/.auth/login/${AUTH_PROVIDER}?post_login_redirect_uri=${redirect}`)
+  }
+
+  const redirectToLogout = () => {
+    const redirect = encodeURIComponent(`${window.location.pathname}${window.location.search}`)
+    window.location.assign(`/.auth/logout?post_logout_redirect_uri=${redirect}`)
+  }
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadAuthState = async () => {
+      try {
+        const res = await fetch('/.auth/me', { credentials: 'include' })
+        if (!res.ok) {
+          if (!cancelled) {
+            setIsAuthenticated(false)
+            setAuthDisplayName(null)
+          }
+          return
+        }
+
+        const authInfo = await res.json()
+        const principal = Array.isArray(authInfo) ? authInfo[0] : undefined
+        const claims = Array.isArray(principal?.user_claims)
+          ? principal.user_claims
+          : []
+
+        const nameClaim =
+          claims.find((claim: any) => claim?.typ === 'name')?.val ||
+          claims.find((claim: any) => claim?.typ === 'preferred_username')?.val ||
+          claims.find((claim: any) => String(claim?.typ || '').includes('/name'))?.val ||
+          null
+
+        if (!cancelled) {
+          setIsAuthenticated(Boolean(principal?.user_id))
+          setAuthDisplayName(nameClaim)
+        }
+      } catch {
+        if (!cancelled) {
+          setIsAuthenticated(false)
+          setAuthDisplayName(null)
+        }
+      }
+    }
+
+    loadAuthState()
+    return () => {
+      cancelled = true
+    }
+  }, [AUTH_PROVIDER])
 
   // Load lists on mount
   useEffect(() => {
@@ -1528,6 +1586,9 @@ function App() {
               onBackgroundChange={setBackgroundImage}
               onOpacityChange={setBackgroundOpacity}
               onUpload={handleBackgroundUpload}
+              isAuthenticated={isAuthenticated}
+              onLogin={redirectToLogin}
+              onLogout={redirectToLogout}
             />
             {!isCompact && (
               <h1 className="font-display text-2xl font-bold text-foreground absolute left-1/2 -translate-x-1/2">
@@ -1536,6 +1597,15 @@ function App() {
             )}
 
             <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={isAuthenticated ? redirectToLogout : redirectToLogin}
+                title={isAuthenticated ? 'Logout' : 'Login'}
+              >
+                {isAuthenticated ? 'Logout' : 'Login'}
+              </Button>
+
               <Button
                 variant="ghost"
                 size="icon"
@@ -1571,6 +1641,12 @@ function App() {
               </Button>
             </div>
           </div>
+
+          {isAuthenticated && authDisplayName && (
+            <p className="text-xs text-muted-foreground text-right -mt-2">
+              Signed in as {authDisplayName}
+            </p>
+          )}
 
           <TimerDisplay
             phase={timerState.phase}

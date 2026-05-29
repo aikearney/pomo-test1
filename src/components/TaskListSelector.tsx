@@ -41,6 +41,9 @@ interface TaskListSelectorProps {
   onBackgroundChange: (background: string | null) => void
   onOpacityChange: (opacity: number) => void
   onUpload: (file: File) => void
+  isAuthenticated?: boolean
+  onLogin?: () => void
+  onLogout?: () => void
 }
 
 const PRESET_BACKGROUNDS = [
@@ -125,7 +128,10 @@ export function TaskListSelector({
   backgroundOpacity,
   onBackgroundChange,
   onOpacityChange,
-  onUpload
+  onUpload,
+  isAuthenticated = false,
+  onLogin,
+  onLogout,
 }: TaskListSelectorProps) {
   const [isCreating, setIsCreating] = useState(false)
   const [newListName, setNewListName] = useState('')
@@ -361,6 +367,23 @@ export function TaskListSelector({
               >
                 <ChartBar size={16} className="mr-2" />
                 Statistics
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+            </>
+          )}
+          {(onLogin || onLogout) && (
+            <>
+              <DropdownMenuItem
+                onClick={() => {
+                  if (isAuthenticated) {
+                    onLogout?.()
+                  } else {
+                    onLogin?.()
+                  }
+                  setIsOpen(false)
+                }}
+              >
+                {isAuthenticated ? 'Logout' : 'Login'}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
             </>
