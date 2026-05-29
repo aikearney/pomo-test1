@@ -1,0 +1,57 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*-dist
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+.env
+**/agent-eval-report*
+packages
+pids
+.file-manifest
+.devcontainer/
+
+.spark-workbench-id
+
+.terraform/
+*.tfstate
+*.tfstate.backup
+
+# Azurite local storage
+__blobstorage__
+__queuestorage__
+__tablestorage__
+AzuriteWorkspace
+*.db
+
+# Squad AI Team: Ignore runtime state, logs, and local sessions
+.squad/orchestration-log/
+.squad/log/
+.squad/sessions/
+.squad/decisions/inbox/
+.squad/config.json
+.squad-workstream
+.squad/.first-run
+.squad/.watch-pids
+# Squad: ignore runtime state (logs, inbox, sessions)
+.squad/.scratch/

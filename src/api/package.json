@@ -1,0 +1,22 @@
+{
+  "name": "api",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "tsc",
+    "start": "func start",
+    "test": "echo \"No tests yet...\""
+  },
+  "dependencies": {
+    "@azure/cosmos": "^4.4.1",
+    "@azure/functions": "^4.8.2"
+  },
+  "devDependencies": {
+    "@types/node": "^25.7.0",
+    "typescript": "^5.0.0"
+  },
+  "main": "index.js",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": ""
+}
