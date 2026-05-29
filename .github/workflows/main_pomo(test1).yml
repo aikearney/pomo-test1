@@ -23,17 +23,44 @@ jobs:
         with:
           node-version: '22.x'
 
-      - name: npm install, build, and test
+      - name: Install dependencies
         run: |
-          npm install
-          npm run build --if-present
-          npm run test --if-present
+          npm ci
+          npm --prefix src/api ci
+
+      - name: Build frontend and API
+        run: |
+          npm run build
+          npm --prefix src/api run build
+
+      - name: Prepare deploy package
+        run: |
+          rm -rf deploy
+          mkdir -p deploy/dist
+          mkdir -p deploy/src/api
+          cp -R dist/. deploy/dist/
+          cp -R src/api/dist deploy/src/api/dist
+          cp src/api/package.json deploy/src/api/package.json
+          cp src/api/package-lock.json deploy/src/api/package-lock.json
+          cp src/api/tsconfig.json deploy/src/api/tsconfig.json
+          cp src/api/.funcignore deploy/src/api/.funcignore || true
+          cp package.json deploy/package.json
+
+      - name: Install API production dependencies in deploy package
+        run: |
+          npm --prefix deploy/src/api ci --omit=dev
+
+      - name: Verify deploy package contents
+        run: |
+          test -f deploy/dist/index.html
+          test -f deploy/src/api/dist/server.js
+          test -f deploy/src/api/node_modules/express/package.json
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: node-app
-          path: .
+          path: deploy/
 
   deploy:
     runs-on: ubuntu-latest
