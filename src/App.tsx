@@ -98,8 +98,10 @@ function App() {
   const [isAnonymousMode, setIsAnonymousMode] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [authDisplayName, setAuthDisplayName] = useState<string | null>(null)
+  const [showLoginOverlay, setShowLoginOverlay] = useState(false)
 
   const AUTH_PROVIDER = (import.meta.env.VITE_AUTH_PROVIDER || 'aad').trim()
+  const LOGIN_PROVIDERS = ['google', 'facebook'] as const
 
   const LOCAL_LISTS_KEY = 'pomodoro-local-lists'
 
@@ -129,14 +131,22 @@ function App() {
     localStorage.setItem(getLocalTasksStorageKey(listId), JSON.stringify(nextTasks))
   }
 
-  const redirectToLogin = () => {
+  const redirectToLogin = (provider = AUTH_PROVIDER) => {
     const redirect = encodeURIComponent(`${window.location.pathname}${window.location.search}`)
-    window.location.assign(`/.auth/login/${AUTH_PROVIDER}?post_login_redirect_uri=${redirect}`)
+    window.location.assign(`/.auth/login/${provider}?post_login_redirect_uri=${redirect}`)
   }
 
   const redirectToLogout = () => {
     const redirect = encodeURIComponent(`${window.location.pathname}${window.location.search}`)
     window.location.assign(`/.auth/logout?post_logout_redirect_uri=${redirect}`)
+  }
+
+  const handleLoginClick = () => {
+    if (isAuthenticated) {
+      redirectToLogout()
+      return
+    }
+    setShowLoginOverlay(true)
   }
 
   useEffect(() => {
@@ -1594,7 +1604,7 @@ function App() {
               onOpacityChange={setBackgroundOpacity}
               onUpload={handleBackgroundUpload}
               isAuthenticated={isAuthenticated}
-              onLogin={redirectToLogin}
+              onLogin={() => setShowLoginOverlay(true)}
               onLogout={redirectToLogout}
             />
             {!isCompact && (
@@ -1607,7 +1617,7 @@ function App() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={isAuthenticated ? redirectToLogout : redirectToLogin}
+                onClick={handleLoginClick}
                 title={isAuthenticated ? 'Logout' : 'Login'}
               >
                 {isAuthenticated ? 'Logout' : 'Login'}
@@ -1987,6 +1997,42 @@ function App() {
           )}
         </div>
       </div>
+
+      {showLoginOverlay && !isAuthenticated && (
+        <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm">
+          <div className="min-h-screen flex items-center justify-center p-6">
+            <Card className="w-full max-w-md p-6 space-y-4 border shadow-xl">
+              <div className="space-y-1 text-center">
+                <h2 className="text-2xl font-semibold">Sign in</h2>
+                <p className="text-sm text-muted-foreground">
+                  Choose a provider to continue.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                {LOGIN_PROVIDERS.map((provider) => (
+                  <Button
+                    key={provider}
+                    className="w-full"
+                    size="lg"
+                    onClick={() => redirectToLogin(provider)}
+                  >
+                    {provider === 'google' ? 'Login with Google' : 'Login with Facebook'}
+                  </Button>
+                ))}
+              </div>
+
+              <Button
+                variant="ghost"
+                className="w-full"
+                onClick={() => setShowLoginOverlay(false)}
+              >
+                Continue without login
+              </Button>
+            </Card>
+          </div>
+        </div>
+      )}
 
       <AlertDialog open={showStopDialog} onOpenChange={setShowStopDialog}>
         <AlertDialogContent>
