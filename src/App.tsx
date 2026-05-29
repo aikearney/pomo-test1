@@ -94,66 +94,94 @@ function App() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [isLoadingLists, setIsLoadingLists] = useState(false)
   const [isLoadingTasks, setIsLoadingTasks] = useState(false)
+  const [isAnonymousMode, setIsAnonymousMode] = useState(false)
+
+  const LOCAL_LISTS_KEY = 'pomodoro-local-lists'
+
+  const isLocalListId = (listId: string | null | undefined) =>
+    !!listId && (listId === 'personal' || listId.startsWith('local-'))
+
+  const getLocalTasksStorageKey = (listId: string) =>
+    listId === 'personal' ? 'personalTasks' : `pomodoro-local-tasks:${listId}`
+
+  const readLocalLists = (): TaskList[] => {
+    const raw = localStorage.getItem(LOCAL_LISTS_KEY)
+    if (!raw) return []
+    try {
+      const parsed = JSON.parse(raw) as TaskList[]
+      if (!Array.isArray(parsed)) return []
+      return parsed.filter((list) => !!list?.id && !!list?.name)
+    } catch {
+      return []
+    }
+  }
+
+  const writeLocalLists = (lists: TaskList[]) => {
+    localStorage.setItem(LOCAL_LISTS_KEY, JSON.stringify(lists))
+  }
+
+  const persistTasksForList = (listId: string, nextTasks: Task[]) => {
+    localStorage.setItem(getLocalTasksStorageKey(listId), JSON.stringify(nextTasks))
+  }
 
   // Load lists on mount
   useEffect(() => {
-  let cancelled = false;
+    let cancelled = false
 
-  const loadLists = async () => {
-    try {
-      setIsLoadingLists(true);
+    const loadLists = async () => {
+      try {
+        setIsLoadingLists(true)
 
-      // 1. Load lists for this user
-      const lists = await apiFetch<TaskList[]>('/api/lists');
-      if (cancelled) return;
+        const lists = await apiFetch<TaskList[]>('/api/lists')
+        if (cancelled) return
 
-      // 2. Case 1: Logged-out user → backend returns synthetic Personal list
-      if (lists.length === 1 && lists[0].id === "personal") {
-        setTaskLists(lists);
-        setCurrentTaskListId("personal");
-        return;
+        const savedListId = localStorage.getItem('pomodoro-current-list-id') || null
+
+        // Logged-out user -> API returns synthetic personal list; keep all CRUD local.
+        if (lists.length === 1 && lists[0].id === 'personal') {
+          setIsAnonymousMode(true)
+          const localLists = readLocalLists()
+          const mergedLists = [lists[0], ...localLists]
+          setTaskLists(mergedLists)
+
+          const exists = mergedLists.some((l) => l.id === savedListId)
+          setCurrentTaskListId(exists ? savedListId : mergedLists[0].id)
+          return
+        }
+
+        setIsAnonymousMode(false)
+
+        // Logged-in user with no lists -> create a default personal list in API.
+        if (lists.length === 0) {
+          const personal = await apiFetch<TaskList>('/api/lists', {
+            method: 'POST',
+            body: JSON.stringify({ name: 'Personal' }),
+          })
+
+          setTaskLists([personal])
+          setCurrentTaskListId(personal.id)
+          return
+        }
+
+        setTaskLists(lists)
+
+        const exists = lists.some((l) => l.id === savedListId)
+        setCurrentTaskListId(exists ? savedListId : lists[0].id)
+      } catch (err: any) {
+        console.error('Error loading lists', err)
+        toast.error('Failed to load lists', {
+          description: err?.message || 'Please try again.',
+        })
+      } finally {
+        if (!cancelled) setIsLoadingLists(false)
       }
-
-      // 2. Case 2: Logged-in user with zero lists → create a real Personal list
-      if (lists.length === 0) {
-        const personal = await apiFetch<TaskList>('/api/lists', {
-          method: 'POST',
-          body: JSON.stringify({ name: 'Personal' })
-        });
-
-        setTaskLists([personal]);
-        setCurrentTaskListId(personal.id);
-        return;
-      }
-
-      // 3. User has lists → load normally
-      setTaskLists(lists);
-
-      const savedListId =
-        localStorage.getItem('pomodoro-current-list-id') || null;
-
-      const exists = lists.some((l) => l.id === savedListId);
-
-      if (exists) {
-        setCurrentTaskListId(savedListId);
-      } else {
-        setCurrentTaskListId(lists[0].id);
-      }
-    } catch (err: any) {
-      console.error('Error loading lists', err);
-      toast.error('Failed to load lists', {
-        description: err?.message || 'Please try again.'
-      });
-    } finally {
-      if (!cancelled) setIsLoadingLists(false);
     }
-  };
 
-  loadLists();
-  return () => {
-    cancelled = true;
-  };
-}, []);
+    loadLists()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   // Persist current list id locally (for UX)
   useEffect(() => {
@@ -164,45 +192,43 @@ function App() {
 
   // Load tasks when current list changes
   useEffect(() => {
-    let cancelled = false;
+    let cancelled = false
 
     const loadTasks = async () => {
       if (!currentTaskListId) {
-        setTasks([]);
-        return;
+        setTasks([])
+        return
       }
 
-      // ⭐ Personal list → load from localStorage
-      if (currentTaskListId === "personal") {
-        const raw = localStorage.getItem("personalTasks");
-        const tasks = raw ? JSON.parse(raw) : [];
-        setTasks(tasks);
-        return;
+      if (isAnonymousMode || isLocalListId(currentTaskListId)) {
+        const raw = localStorage.getItem(getLocalTasksStorageKey(currentTaskListId))
+        const nextTasks = raw ? (JSON.parse(raw) as Task[]) : []
+        setTasks(Array.isArray(nextTasks) ? nextTasks : [])
+        return
       }
 
-      // ⭐ Real list → load from API
       try {
-        setIsLoadingTasks(true);
+        setIsLoadingTasks(true)
         const listTasks = await apiFetch<Task[]>(
           `/api/lists/${encodeURIComponent(currentTaskListId)}/tasks`
-        );
-        if (cancelled) return;
-        setTasks(listTasks || []);
+        )
+        if (cancelled) return
+        setTasks(listTasks || [])
       } catch (err: any) {
-        console.error("Error loading tasks", err);
-        toast.error("Failed to load tasks", {
-          description: err?.message || "Please try again.",
-        });
+        console.error('Error loading tasks', err)
+        toast.error('Failed to load tasks', {
+          description: err?.message || 'Please try again.',
+        })
       } finally {
-        if (!cancelled) setIsLoadingTasks(false);
+        if (!cancelled) setIsLoadingTasks(false)
       }
-    };
+    }
 
-    loadTasks();
+    loadTasks()
     return () => {
-      cancelled = true;
-    };
-  }, [currentTaskListId]);
+      cancelled = true
+    }
+  }, [currentTaskListId, isAnonymousMode])
 
 
   const currentTaskList =
@@ -668,6 +694,23 @@ function App() {
       listId: currentTaskListId,
     }
 
+    if (isAnonymousMode || isLocalListId(currentTaskListId)) {
+      const localTask: Task = {
+        ...newTask,
+        id: `local-task-${Date.now()}`,
+      }
+      setTasks((currentTasks) => {
+        const nextTasks = [...(currentTasks || []), localTask]
+        persistTasksForList(currentTaskListId, nextTasks)
+        return nextTasks
+      })
+      setNewTaskName('')
+      setNewTaskIterations('1')
+      setIsAddingTask(false)
+      toast.success('Task added')
+      return
+    }
+
     try {
       const created = await apiFetch<Task>(
         `/api/lists/${encodeURIComponent(currentTaskListId)}/tasks`,
@@ -701,6 +744,24 @@ function App() {
       id: `temp-${Date.now()}`,
       // @ts-expect-error: listId may not exist yet in your Task type, but backend expects it
       listId: currentTaskListId,
+    }
+
+    if (isAnonymousMode || isLocalListId(currentTaskListId)) {
+      const created: Task = {
+        ...payload,
+        id: `local-task-${Date.now()}`,
+      }
+      setTasks((currentTasks) => {
+        const nextTasks = [...(currentTasks || []), created]
+        persistTasksForList(currentTaskListId, nextTasks)
+        return nextTasks
+      })
+      toast.success('Template added', {
+        description: `${created.name} will repeat ${
+          created.recurrence ? `every ${created.recurrence.interval} ${created.recurrence.unit}` : ''
+        }`,
+      })
+      return
     }
 
     try {
@@ -942,6 +1003,14 @@ function App() {
       return [...highPriorityTasks, ...normalPriorityTasks, ...completedTasks]
     })
 
+    if ((isAnonymousMode || isLocalListId(currentTaskListId)) && currentTaskListId) {
+      const nextTasks = (tasks || []).map((t) =>
+        t.id === taskId ? updatedTask : t
+      )
+      persistTasksForList(currentTaskListId, nextTasks)
+      return
+    }
+
     // Persist to backend
     try {
       await apiFetch(`/api/tasks/${encodeURIComponent(taskId)}`, {
@@ -990,10 +1059,16 @@ function App() {
     }
 
     // optimistic
-    setTasks((currentTasks) =>
-      (currentTasks || []).filter((t) => t.id !== taskId)
-    )
+    const nextTasks = (tasks || []).filter((t) => t.id !== taskId)
+    setTasks(nextTasks)
+    if ((isAnonymousMode || isLocalListId(currentTaskListId)) && currentTaskListId) {
+      persistTasksForList(currentTaskListId, nextTasks)
+    }
     toast.success('Task deleted')
+
+    if (isAnonymousMode || isLocalListId(currentTaskListId)) {
+      return
+    }
 
     try {
       await apiFetch(`/api/tasks/${encodeURIComponent(taskId)}`, {
@@ -1015,15 +1090,21 @@ function App() {
     }
 
     // optimistic
-    setTasks((currentTasks) =>
-      (currentTasks || []).filter((t) => !t.completed)
-    )
+    const nextTasks = (tasks || []).filter((t) => !t.completed)
+    setTasks(nextTasks)
+    if ((isAnonymousMode || isLocalListId(currentTaskListId)) && currentTaskListId) {
+      persistTasksForList(currentTaskListId, nextTasks)
+    }
     setShowBulkDeleteDialog(false)
     toast.success(
       `Deleted ${completedTasks.length} completed ${
         completedTasks.length === 1 ? 'task' : 'tasks'
       }`
     )
+
+    if (isAnonymousMode || isLocalListId(currentTaskListId)) {
+      return
+    }
 
     // naive per-task delete; you can later add a bulk endpoint
     try {
@@ -1045,6 +1126,23 @@ function App() {
   // --- LIST CRUD (REST-backed) ---
 
   const createTaskList = async (name: string) => {
+    if (isAnonymousMode) {
+      const newList: TaskList = {
+        id: `local-${Date.now()}`,
+        name,
+        createdAt: Date.now(),
+      }
+      setTaskLists((currentLists) => {
+        const nextLists = [...(currentLists || []), newList]
+        writeLocalLists(nextLists.filter((list) => list.id !== 'personal'))
+        return nextLists
+      })
+      setCurrentTaskListId(newList.id)
+      persistTasksForList(newList.id, [])
+      toast.success('List created')
+      return
+    }
+
     try {
       const newList = await apiFetch<TaskList>('/api/lists', {
         method: 'POST',
@@ -1062,6 +1160,18 @@ function App() {
   }
 
   const renameTaskList = async (listId: string, newName: string) => {
+    if (isAnonymousMode || isLocalListId(listId)) {
+      setTaskLists((currentLists) => {
+        const nextLists = (currentLists || []).map((list) =>
+          list.id === listId ? { ...list, name: newName } : list
+        )
+        writeLocalLists(nextLists.filter((list) => list.id !== 'personal'))
+        return nextLists
+      })
+      toast.success('List renamed')
+      return
+    }
+
     try {
       const updated = await apiFetch<TaskList>(
         `/api/lists/${encodeURIComponent(listId)}`,
@@ -1099,8 +1209,17 @@ function App() {
       if (currentTaskListId === listId && updatedLists.length > 0) {
         setCurrentTaskListId(updatedLists[0].id)
       }
+      if (isAnonymousMode || isLocalListId(listId)) {
+        writeLocalLists(updatedLists.filter((list) => list.id !== 'personal'))
+      }
       return updatedLists
     })
+
+    if (isAnonymousMode || isLocalListId(listId)) {
+      localStorage.removeItem(getLocalTasksStorageKey(listId))
+      toast.success('List deleted')
+      return
+    }
 
     try {
       await apiFetch(`/api/lists/${encodeURIComponent(listId)}`, {
@@ -1118,6 +1237,30 @@ function App() {
   const duplicateTaskList = async (listId: string) => {
     const listToDuplicate = (taskLists || []).find((list) => list.id === listId)
     if (!listToDuplicate) return
+
+    if (isAnonymousMode || isLocalListId(listId)) {
+      const duplicatedList: TaskList = {
+        id: `local-${Date.now()}`,
+        name: `${listToDuplicate.name} (Copy)`,
+        createdAt: Date.now(),
+      }
+      const sourceTasksRaw = localStorage.getItem(getLocalTasksStorageKey(listId))
+      const sourceTasks = sourceTasksRaw ? (JSON.parse(sourceTasksRaw) as Task[]) : []
+      const duplicatedTasks = sourceTasks.map((task) => ({
+        ...task,
+        id: `local-task-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      }))
+
+      setTaskLists((currentLists) => {
+        const nextLists = [...(currentLists || []), duplicatedList]
+        writeLocalLists(nextLists.filter((list) => list.id !== 'personal'))
+        return nextLists
+      })
+      persistTasksForList(duplicatedList.id, duplicatedTasks)
+      setCurrentTaskListId(duplicatedList.id)
+      toast.success('Task list duplicated')
+      return
+    }
 
     // For now, duplicate as empty list; you can later add server-side cloning
     try {
