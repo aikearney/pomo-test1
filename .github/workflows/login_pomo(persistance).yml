@@ -69,6 +69,7 @@ jobs:
           app-name: 'pomo'
           slot-name: 'persistance'
           package: .
+          startup-command: 'npm start'
 
       - name: Backoff before deploy retry 2
         if: steps.deploy-to-webapp-attempt-1.outcome == 'failure'
@@ -83,6 +84,7 @@ jobs:
           app-name: 'pomo'
           slot-name: 'persistance'
           package: .
+          startup-command: 'npm start'
 
       - name: Backoff before deploy retry 3
         if: steps.deploy-to-webapp-attempt-1.outcome == 'failure' && steps.deploy-to-webapp-attempt-2.outcome == 'failure'
@@ -96,6 +98,7 @@ jobs:
           app-name: 'pomo'
           slot-name: 'persistance'
           package: .
+          startup-command: 'npm start'
 
       - name: Fail if all deploy attempts failed
         if: steps.deploy-to-webapp-attempt-1.outcome == 'failure' && steps.deploy-to-webapp-attempt-2.outcome == 'failure' && steps.deploy-to-webapp-attempt-3.outcome == 'failure'
