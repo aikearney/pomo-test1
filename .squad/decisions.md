@@ -30,6 +30,18 @@
 - **Scope:** Backend authentication layer; fixes broken OAuth flow on frontend login.
 - **Source:** `.squad/decisions/inbox/parker-oauth-fix.md`
 
+### 2026-05-30: Compact Button Layout for Task Actions
+- **By:** Dallas (Frontend Dev)
+- **Decision:** Reorganize task and subtask action buttons into a compact grouped layout with dropdown menu for secondary actions.
+- **Problem:** Task action buttons were crowded in a single horizontal line, causing wrapping and visual clutter, especially on mobile.
+- **Solution:**
+  - Main task buttons: Move controls (up/down) + Select/Play button + Secondary actions in dropdown (recurrence, priority, delete)
+  - Subtask buttons: Move controls (up/down) + Iterations badge + More menu (delete)
+  - Added `DotsThree` icon from @phosphor-icons for dropdown triggers
+- **Benefits:** Compact layout, better visual organization, mobile-friendly, all functionality preserved
+- **Scope:** Frontend-only; `src/components/TaskItem.tsx` changes only; no API/schema changes
+- **Source:** `.squad/decisions/inbox/dallas-compact-buttons.md`
+
 ## Governance
 
 - All meaningful changes require team consensus
