@@ -42,6 +42,13 @@
 - **Scope:** Frontend-only; `src/components/TaskItem.tsx` changes only; no API/schema changes
 - **Source:** `.squad/decisions/inbox/dallas-compact-buttons.md`
 
+### 2026-05-30: Reorder UX Choice (Arrows + Menu over Touch Drag)
+- **By:** Dallas (Frontend Dev)
+- **Decision:** Keep explicit up/down controls for tasks and subtasks, add up/down options to three-dot menus, and disable drag interactions on touch devices.
+- **Rationale:** Improves reorder reliability and clarity on touch screens while preserving desktop drag behavior and ordering contracts.
+- **Scope:** Frontend-only (`src/components/TaskItem.tsx`, `src/App.tsx` wiring); no API/schema/data-contract changes.
+- **Source:** `.squad/decisions/inbox/dallas-reorder-ux-choice.md`
+
 ## Governance
 
 - All meaningful changes require team consensus

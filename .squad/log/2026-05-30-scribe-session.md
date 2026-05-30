@@ -7,6 +7,7 @@ Agent: Scribe
 ## Completed
 - Merged all current decision inbox notes into `.squad/decisions.md`.
 - Included Dallas mobile reorder decision and normalized it into the active decisions format.
+- Included Dallas reorder UX follow-up decision (`dallas-reorder-ux-choice.md`) in active decisions.
 - Added orchestration record for Dallas completion in `.squad/orchestration-log/`.
 - Updated cross-agent history notes in `.squad/agents/dallas/history.md` and `.squad/agents/scribe/history.md`.
 - **Scribe Session (May 30, Final):**
@@ -24,3 +25,4 @@ Agent: Scribe
 - Added orchestration log entry for Dallas timer refresh persistence work.
 - Updated Dallas and Scribe history notes to reflect timer refresh persistence completion and documentation.
 - Final: Parker OAuth decision merged; orchestration and history updated; .squad changes committed.
+- Final (Dallas follow-up): merged `dallas-reorder-ux-choice.md` into `.squad/decisions.md`, updated Dallas orchestration/history records, and prepared tracked .squad changes for commit.
