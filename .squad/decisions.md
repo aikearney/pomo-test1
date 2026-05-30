@@ -57,6 +57,13 @@
 - **Implementation Scope:** Frontend-only updates in task list UI wiring and task item components; no backend/API/schema/data-contract changes.
 - **Source:** `.squad/decisions/inbox/dallas-remove-desktop-drag.md`
 
+### 2026-05-30: Subtask Enhancements — Move Between Tasks + Horizontal Layout
+- **By:** Dallas (Frontend Dev)
+- **Decision:** Implement two UI improvements: (1) Add "Move to task..." menu option for subtasks with task picker dialog to transfer subtasks between tasks while preserving state and incomplete→completed ordering; (2) Expand subtask layout horizontally using `min-w-0` and reorganized controls container so names utilize available width with graceful truncation.
+- **Scope:** Frontend-only; files changed: `src/components/TaskItem.tsx`, `src/App.tsx`; no API/schema/data-contract changes.
+- **Rationale:** Reduces friction for task reorganization; better screen real estate utilization; improved readability of long subtask names.
+- **Source:** `.squad/decisions/inbox/dallas-subtask-moves-layout.md`
+
 ## Governance
 
 - All meaningful changes require team consensus
