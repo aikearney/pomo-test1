@@ -281,9 +281,18 @@ export function TaskItem({
       completed: false
     }
 
+    const firstCompletedIndex = task.subtasks.findIndex(st => st.completed)
+    const updatedSubtasks = [...task.subtasks]
+
+    if (firstCompletedIndex === -1) {
+      updatedSubtasks.push(newSubtask)
+    } else {
+      updatedSubtasks.splice(firstCompletedIndex, 0, newSubtask)
+    }
+
     onUpdate({
       ...task,
-      subtasks: [...task.subtasks, newSubtask]
+      subtasks: updatedSubtasks
     })
 
     setSubtaskName('')
