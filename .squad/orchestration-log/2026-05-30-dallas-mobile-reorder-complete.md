@@ -16,3 +16,6 @@ Dallas completed the mobile reorder UX update by keeping explicit up/down contro
 ## Impact
 - Frontend interaction improved for touch reliability and quick one-step reorder.
 - No backend contract, schema, or payload shape changes.
+
+## Scribe Follow-up
+- 2026-05-30: Added Dallas completion note for subtask horizontal-space layout fix in `.squad/agents/dallas/history.md` and re-checked decision inbox status (no new merge needed).
