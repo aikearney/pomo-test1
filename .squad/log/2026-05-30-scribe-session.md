@@ -12,3 +12,8 @@ Agent: Scribe
 
 ## Notes
 - Decision inbox entries are now reflected in the canonical decisions document.
+
+## Update
+- Decision inbox reviewed again during this session; no pending inbox files required merge.
+- Added orchestration log entry for Dallas timer refresh persistence work.
+- Updated Dallas and Scribe history notes to reflect timer refresh persistence completion and documentation.
