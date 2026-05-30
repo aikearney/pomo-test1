@@ -19,6 +19,17 @@
 - **Scope:** Frontend-only; no backend contract, schema, or payload changes.
 - **Source:** `.squad/decisions/inbox/dallas-mobile-reorder.md`
 
+### 2026-05-30: OAuth Authentication Implementation - Hybrid Approach
+- **By:** Parker (Backend Dev)
+- **Decision:** Implement full OAuth support using Passport.js with a hybrid authentication approach that auto-detects Azure Easy Auth or falls back to Passport-based OAuth. Support Google and Facebook providers with session-based authentication using secure HTTP-only cookies.
+- **Key Changes:**
+  - Added OAuth endpoints: `/.auth/me`, `/.auth/login/{provider}`, `/.auth/callback/{provider}`, `/.auth/logout`
+  - Implemented two authentication modes: Azure Easy Auth (production) and Passport OAuth (local dev)
+  - Added dependencies: express-session, passport, passport-google-oauth20, passport-facebook
+  - Updated `src/api/server.ts`, `src/api/shared/oauth.ts`, `src/api/shared/auth.ts`
+- **Scope:** Backend authentication layer; fixes broken OAuth flow on frontend login.
+- **Source:** `.squad/decisions/inbox/parker-oauth-fix.md`
+
 ## Governance
 
 - All meaningful changes require team consensus
