@@ -22,6 +22,10 @@ interface TaskItemProps {
   isDragOver: boolean
   onSelect?: () => void
   onTouchReorder?: (direction: 'up' | 'down') => void
+  onMoveUp?: () => void
+  onMoveDown?: () => void
+  canMoveUp?: boolean
+  canMoveDown?: boolean
 }
 
 interface SubtaskItemProps {
@@ -36,6 +40,10 @@ interface SubtaskItemProps {
   isDragging: boolean
   isDragOver: boolean
   onAddNew?: () => void
+  onMoveUp?: () => void
+  onMoveDown?: () => void
+  canMoveUp?: boolean
+  canMoveDown?: boolean
 }
 
 function SubtaskItem({
@@ -49,7 +57,11 @@ function SubtaskItem({
   onDrop,
   isDragging,
   isDragOver,
-  onAddNew
+  onAddNew,
+  onMoveUp,
+  onMoveDown,
+  canMoveUp = false,
+  canMoveDown = false
 }: SubtaskItemProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [editName, setEditName] = useState(subtask.name)
@@ -112,7 +124,7 @@ function SubtaskItem({
       onDragOver={onDragOver}
       onDrop={onDrop}
       className={cn(
-        'flex items-center gap-2 text-sm p-1.5 rounded transition-all',
+        'flex items-start sm:items-center gap-2 text-sm p-1.5 rounded transition-all',
         isDragging && 'opacity-50 scale-95 rotate-1',
         isDragOver && 'bg-accent/20 scale-[1.02]'
       )}
@@ -126,7 +138,7 @@ function SubtaskItem({
       <Checkbox
         checked={subtask.completed}
         onCheckedChange={onToggleComplete}
-        className="h-3.5 w-3.5"
+        className="h-4 w-4 mt-0.5 sm:mt-0"
       />
       
       {isEditing ? (
@@ -168,6 +180,28 @@ function SubtaskItem({
           >
             {subtask.name}
           </span>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={onMoveUp}
+              disabled={!canMoveUp}
+              title="Move subtask up"
+            >
+              <CaretUp size={14} />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={onMoveDown}
+              disabled={!canMoveDown}
+              title="Move subtask down"
+            >
+              <CaretDown size={14} />
+            </Button>
+          </div>
           <Badge 
             variant="outline" 
             className="text-xs cursor-pointer hover:bg-accent/10 transition-colors"
@@ -178,8 +212,9 @@ function SubtaskItem({
           <Button
             variant="ghost"
             size="icon"
-            className="h-5 w-5"
+            className="h-7 w-7"
             onClick={onDelete}
+            title="Delete subtask"
           >
             <Trash size={12} />
           </Button>
@@ -201,7 +236,11 @@ export function TaskItem({
   isDragging,
   isDragOver,
   onSelect,
-  onTouchReorder
+  onTouchReorder,
+  onMoveUp,
+  onMoveDown,
+  canMoveUp = false,
+  canMoveDown = false
 }: TaskItemProps) {
   const [isAddingSubtask, setIsAddingSubtask] = useState(false)
   const [subtaskName, setSubtaskName] = useState('')
@@ -266,6 +305,23 @@ export function TaskItem({
       st.id === subtaskId ? updatedSubtask : st
     )
     onUpdate({ ...task, subtasks: updatedSubtasks })
+  }
+
+  const moveSubtask = (subtaskId: string, direction: 'up' | 'down') => {
+    const currentIndex = task.subtasks.findIndex(st => st.id === subtaskId)
+    if (currentIndex === -1) return
+
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1
+    if (targetIndex < 0 || targetIndex >= task.subtasks.length) return
+
+    const newSubtasks = [...task.subtasks]
+    const [movedSubtask] = newSubtasks.splice(currentIndex, 1)
+    newSubtasks.splice(targetIndex, 0, movedSubtask)
+
+    onUpdate({
+      ...task,
+      subtasks: newSubtasks
+    })
   }
 
   const addSubtask = () => {
@@ -473,7 +529,7 @@ export function TaskItem({
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       className={cn(
-        'border rounded-lg p-3 transition-all relative',
+        'border rounded-lg p-2.5 sm:p-3 transition-all relative',
         isActive ? 'border-accent bg-accent/5 ring-2 ring-accent/20' : 'border-border bg-card',
         task.completed && 'opacity-60',
         task.isHighPriority && !task.completed && 'border-primary bg-primary/5',
@@ -619,8 +675,8 @@ export function TaskItem({
           )}
 
           {!task.collapsed && task.subtasks.length > 0 && (
-            <div className="mt-2 ml-4 space-y-1">
-              {task.subtasks.map(subtask => (
+            <div className="mt-2 ml-2 sm:ml-4 space-y-1">
+              {task.subtasks.map((subtask, index) => (
                 <SubtaskItem
                   key={subtask.id}
                   subtask={subtask}
@@ -634,13 +690,17 @@ export function TaskItem({
                   isDragging={draggedSubtaskId === subtask.id}
                   isDragOver={dragOverSubtaskId === subtask.id}
                   onAddNew={() => setIsAddingSubtask(true)}
+                  onMoveUp={() => moveSubtask(subtask.id, 'up')}
+                  onMoveDown={() => moveSubtask(subtask.id, 'down')}
+                  canMoveUp={index > 0}
+                  canMoveDown={index < task.subtasks.length - 1}
                 />
               ))}
             </div>
           )}
 
           {!task.collapsed && isAddingSubtask && (
-            <div className="mt-2 ml-4 flex gap-2">
+            <div className="mt-2 ml-2 sm:ml-4 flex flex-col sm:flex-row gap-2">
               <Input
                 ref={subtaskInputRef}
                 id="subtask-name"
@@ -688,7 +748,7 @@ export function TaskItem({
             <Button
               variant="ghost"
               size="sm"
-              className="mt-2 ml-4 h-7 text-xs"
+              className="mt-2 ml-2 sm:ml-4 h-8 text-xs"
               onClick={() => setIsAddingSubtask(true)}
             >
               <Plus size={14} className="mr-1" />
@@ -698,7 +758,33 @@ export function TaskItem({
         </div>
 
         {!isEditing && (
-          <div className="flex items-center gap-1">
+          <div className="flex items-center justify-end gap-1 flex-wrap">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={(e) => {
+                e.stopPropagation()
+                onMoveUp?.()
+              }}
+              className="h-8 w-8"
+              disabled={!canMoveUp}
+              title="Move task up"
+            >
+              <CaretUp size={16} />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={(e) => {
+                e.stopPropagation()
+                onMoveDown?.()
+              }}
+              className="h-8 w-8"
+              disabled={!canMoveDown}
+              title="Move task down"
+            >
+              <CaretDown size={16} />
+            </Button>
             {!task.completed && (
               <>
                 <Button
@@ -738,11 +824,11 @@ export function TaskItem({
                   e.stopPropagation()
                   onSelect()
                 }}
-                className="h-7 px-2 text-xs"
+                className="h-8 px-2 text-xs"
                 title="Set as current task"
               >
-                <PlayCircle size={16} className="mr-1" weight={isActive ? "fill" : "regular"} />
-                {isActive ? 'Active' : 'Select'}
+                <PlayCircle size={16} className="sm:mr-1" weight={isActive ? "fill" : "regular"} />
+                <span className="hidden sm:inline">{isActive ? 'Active' : 'Select'}</span>
               </Button>
             )}
             <Button

@@ -65,7 +65,7 @@ export function TimerDisplay({ phase, remainingSeconds, completedIterations, isC
 
   if (isCompact) {
     return (
-      <Card className="p-4">
+      <Card className="p-3 sm:p-4">
         <div className="flex flex-col items-center gap-3">
           <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             {getPhaseLabel()}
@@ -76,7 +76,7 @@ export function TimerDisplay({ phase, remainingSeconds, completedIterations, isC
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.3 }}
-            className={cn('font-display font-bold text-5xl', getPhaseColor())}
+            className={cn('font-display font-bold text-4xl sm:text-5xl', getPhaseColor())}
           >
             {formatTimerDisplay(remainingSeconds)}
           </motion.div>
@@ -102,7 +102,7 @@ export function TimerDisplay({ phase, remainingSeconds, completedIterations, isC
   }
 
   return (
-    <Card className="p-6">
+    <Card className="p-4 sm:p-6">
       <div className="flex flex-col items-center gap-4">
         <div className="flex items-center gap-3">
           <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -120,7 +120,7 @@ export function TimerDisplay({ phase, remainingSeconds, completedIterations, isC
           initial={{ scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ duration: 0.3 }}
-          className={cn('font-display font-bold text-5xl md:text-6xl', getPhaseColor())}
+          className={cn('font-display font-bold text-4xl sm:text-5xl md:text-6xl', getPhaseColor())}
         >
           {formatTimerDisplay(remainingSeconds)}
         </motion.div>

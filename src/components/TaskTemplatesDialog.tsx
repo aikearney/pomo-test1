@@ -128,7 +128,7 @@ export function TaskTemplatesDialog({
   return (
     <>
       <Dialog open={open && !selectedTemplate} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col gap-0 p-0">
+        <DialogContent className="w-[calc(100vw-1rem)] sm:w-auto sm:max-w-3xl max-h-[90vh] flex flex-col gap-0 p-0">
           <DialogHeader className="px-6 pt-6 pb-4">
             <DialogTitle className="flex items-center gap-2">
               <span className="text-2xl">📚</span>
@@ -175,7 +175,7 @@ export function TaskTemplatesDialog({
               </ScrollArea>
 
               <TabsContent value={selectedCategory} className="mt-4 flex-1 min-h-0 overflow-hidden">
-                <ScrollArea className="h-[400px]">
+                <ScrollArea className="h-[50vh] sm:h-[400px]">
                   <div className="space-y-2 pr-4">
                     {displayedTemplates.length === 0 ? (
                       <div className="text-center py-12 text-muted-foreground">
@@ -261,7 +261,7 @@ export function TaskTemplatesDialog({
       </Dialog>
 
       <Dialog open={!!selectedTemplate} onOpenChange={(open) => !open && handleCancelRecurrence()}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="w-[calc(100vw-1rem)] sm:w-auto sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Customize Task</DialogTitle>
             <DialogDescription>
@@ -282,14 +282,14 @@ export function TaskTemplatesDialog({
 
             <div className="space-y-2">
               <Label htmlFor="recurrence-interval">Repeat every</Label>
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <Input
                   id="recurrence-interval"
                   type="number"
                   min="1"
                   value={recurrenceInterval}
                   onChange={(e) => setRecurrenceInterval(e.target.value)}
-                  className="w-24"
+                  className="w-full sm:w-24"
                 />
                 <Select value={recurrenceUnit} onValueChange={(value) => setRecurrenceUnit(value as 'days' | 'weeks' | 'months')}>
                   <SelectTrigger className="flex-1">

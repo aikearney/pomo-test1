@@ -1414,24 +1414,36 @@ function App() {
     taskId: string,
     direction: 'up' | 'down'
   ) => {
+    let didMove = false
+
     setTasks((currentTasks) => {
       const tasks = currentTasks || []
-      const taskIndex = tasks.findIndex((t) => t.id === taskId)
+      const taskToMove = tasks.find((t) => t.id === taskId)
+      if (!taskToMove) return tasks
+
+      const incomplete = tasks.filter((t) => !t.completed)
+      const completed = tasks.filter((t) => t.completed)
+      const targetGroup = taskToMove.completed ? completed : incomplete
+
+      const taskIndex = targetGroup.findIndex((t) => t.id === taskId)
       if (taskIndex === -1) return tasks
 
       const newIndex = direction === 'up' ? taskIndex - 1 : taskIndex + 1
-      if (newIndex < 0 || newIndex >= tasks.length) return tasks
+      if (newIndex < 0 || newIndex >= targetGroup.length) return tasks
 
-      const newTasks = [...tasks]
-      const [movedTask] = newTasks.splice(taskIndex, 1)
-      newTasks.splice(newIndex, 0, movedTask)
+      didMove = true
+      const reorderedGroup = [...targetGroup]
+      const [movedTask] = reorderedGroup.splice(taskIndex, 1)
+      reorderedGroup.splice(newIndex, 0, movedTask)
 
-      const incompleteTasks = newTasks.filter((t) => !t.completed)
-      const completedTasks = newTasks.filter((t) => t.completed)
-      return [...incompleteTasks, ...completedTasks]
+      return taskToMove.completed
+        ? [...incomplete, ...reorderedGroup]
+        : [...reorderedGroup, ...completed]
     })
 
-    toast.success(`Task moved ${direction}`)
+    if (didMove) {
+      toast.success(`Task moved ${direction}`)
+    }
   }
 
   const handleBackgroundUpload = (file: File) => {
@@ -1569,7 +1581,7 @@ function App() {
     <>
       <Toaster position="top-center" duration={3000} closeButton />
       <div
-        className="min-h-screen bg-background p-4 relative"
+        className="min-h-screen bg-background p-3 sm:p-4 relative"
         style={getBackgroundStyle()}
       >
         {backgroundImage && (
@@ -1588,7 +1600,7 @@ function App() {
             isCompact ? 'max-w-sm' : 'max-w-2xl'
           } space-y-4 relative z-10`}
         >
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
             <TaskListSelector
               taskLists={taskLists || []}
               currentTaskListId={currentTaskListId || 'default'}
@@ -1608,12 +1620,12 @@ function App() {
               onLogout={redirectToLogout}
             />
             {!isCompact && (
-              <h1 className="font-display text-2xl font-bold text-foreground absolute left-1/2 -translate-x-1/2">
+              <h1 className="hidden md:block font-display text-2xl font-bold text-foreground absolute left-1/2 -translate-x-1/2">
                 Pomodoro Timer
               </h1>
             )}
 
-            <div className="flex gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
               <Button
                 variant="outline"
                 size="sm"
@@ -1704,7 +1716,7 @@ function App() {
             </Card>
           )}
 
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             {!timerState.isRunning ? (
               <Button onClick={startTimer} className="flex-1" size="lg">
                 <Play size={20} className="mr-2" />
@@ -1748,7 +1760,7 @@ function App() {
                     )}
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap justify-end">
                     {tasksList.length > 0 && (
                       <Button
                         variant="ghost"
@@ -1854,7 +1866,7 @@ function App() {
                   </Card>
                 )}
 
-                <ScrollArea className="h-[400px]">
+                <ScrollArea className="h-[55vh] sm:h-[400px]">
                   <div className="space-y-2">
                     <AnimatePresence>
                       {isLoadingTasks ? (
@@ -1899,6 +1911,10 @@ function App() {
                                 onTouchReorder={(direction) =>
                                   handleTouchReorder(task.id, direction)
                                 }
+                                onMoveUp={() => handleTouchReorder(task.id, 'up')}
+                                onMoveDown={() => handleTouchReorder(task.id, 'down')}
+                                canMoveUp={incompleteTasks.findIndex((t) => t.id === task.id) > 0}
+                                canMoveDown={incompleteTasks.findIndex((t) => t.id === task.id) < incompleteTasks.length - 1}
                               />
                             </motion.div>
                           ))}
@@ -1981,6 +1997,10 @@ function App() {
                                       onTouchReorder={(direction) =>
                                         handleTouchReorder(task.id, direction)
                                       }
+                                      onMoveUp={() => handleTouchReorder(task.id, 'up')}
+                                      onMoveDown={() => handleTouchReorder(task.id, 'down')}
+                                      canMoveUp={completedTasks.findIndex((t) => t.id === task.id) > 0}
+                                      canMoveDown={completedTasks.findIndex((t) => t.id === task.id) < completedTasks.length - 1}
                                     />
                                   </motion.div>
                                 ))}

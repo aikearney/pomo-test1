@@ -208,8 +208,8 @@ export function TaskListSelector({
       />
       <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" className="gap-2">
-            <span className="font-medium">{currentTaskList?.name || 'Select List'}</span>
+          <Button variant="outline" className="gap-2 max-w-[min(62vw,16rem)] justify-between">
+            <span className="font-medium truncate">{currentTaskList?.name || 'Select List'}</span>
             <CaretDown size={16} weight="bold" />
           </Button>
         </DropdownMenuTrigger>

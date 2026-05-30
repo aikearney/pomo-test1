@@ -25,7 +25,7 @@ export function StatisticsDialog({ open, onOpenChange, statistics }: StatisticsD
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh]">
+      <DialogContent className="w-[calc(100vw-1rem)] sm:w-auto sm:max-w-2xl max-h-[90vh]">
         <DialogHeader>
           <DialogTitle>Statistics</DialogTitle>
           <DialogDescription>
@@ -33,8 +33,8 @@ export function StatisticsDialog({ open, onOpenChange, statistics }: StatisticsD
           </DialogDescription>
         </DialogHeader>
         <ScrollArea className="h-[60vh]">
-          <div className="space-y-6 pr-4">
-            <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-6 pr-2 sm:pr-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <Card className="p-4">
                 <div className="flex items-center gap-3">
                   <div className="p-2 rounded-lg bg-primary/10">
