@@ -64,6 +64,13 @@
 - **Rationale:** Reduces friction for task reorganization; better screen real estate utilization; improved readability of long subtask names.
 - **Source:** `.squad/decisions/inbox/dallas-subtask-moves-layout.md`
 
+### 2026-05-30: Subtask Row Text-First Tuning
+- **By:** Dallas (Frontend Dev)
+- **Decision:** Tune subtask row responsiveness to prioritize subtask name visibility over inline controls.
+- **Changes:** Raised layout breakpoints, collapsed inline subtask move arrows to menu in tighter modes, hid iterations badge sooner in tighter modes, reduced compact/tight control footprint, and preserved full action access via the three-dot menu.
+- **Scope:** Frontend-only updates in `src/components/TaskItem.tsx`; no API/schema/data-contract changes.
+- **Source:** `.squad/decisions/inbox/dallas-subtask-text-first-tuning.md`
+
 ## Governance
 
 - All meaningful changes require team consensus

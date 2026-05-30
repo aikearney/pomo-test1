@@ -32,3 +32,4 @@ Agent: Scribe
 - Final (Ash deployment hardening): logged completion in orchestration/session records, updated Ash history, and confirmed no Ash-specific decision inbox merge was pending.
 - Final (Dallas horizontal-space follow-up): added explicit Dallas completion note for subtask horizontal-space layout fix; reviewed decision inbox and found no new relevant decision requiring merge; logged orchestration/session updates in tracked `.squad` files only.
 - Final (Scribe request - horizontal-space closure): confirmed Dallas history includes a dedicated completion note for the subtask horizontal-space layout fix and verified no additional inbox decision merge was required.
+- Final (Dallas subtask text-first tuning): merged `dallas-subtask-text-first-tuning.md` into `.squad/decisions.md`, added Dallas completion note for subtask text-wrapping update, and logged this orchestration/session pass using tracked `.squad` files only.
