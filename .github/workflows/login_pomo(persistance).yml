@@ -55,11 +55,50 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_4FEAF97244504C64BDFB0E963F0E9B71 }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_91E2859E0D874D528AC7A524C836F8B3 }}
 
-      - name: 'Deploy to Azure Web App'
-        id: deploy-to-webapp
+      - name: Stabilize App Service SCM before deploy
+        run: |
+          # Mitigate transient SCM/Kudu restarts after recent platform/management operations.
+          sleep 30
+
+      - name: Deploy to Azure Web App (attempt 1)
+        id: deploy-to-webapp-attempt-1
+        continue-on-error: true
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'pomo'
           slot-name: 'persistance'
           package: .
+
+      - name: Backoff before deploy retry 2
+        if: steps.deploy-to-webapp-attempt-1.outcome == 'failure'
+        run: sleep 45
+
+      - name: Deploy to Azure Web App (attempt 2)
+        id: deploy-to-webapp-attempt-2
+        if: steps.deploy-to-webapp-attempt-1.outcome == 'failure'
+        continue-on-error: true
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'pomo'
+          slot-name: 'persistance'
+          package: .
+
+      - name: Backoff before deploy retry 3
+        if: steps.deploy-to-webapp-attempt-1.outcome == 'failure' && steps.deploy-to-webapp-attempt-2.outcome == 'failure'
+        run: sleep 90
+
+      - name: Deploy to Azure Web App (attempt 3)
+        id: deploy-to-webapp-attempt-3
+        if: steps.deploy-to-webapp-attempt-1.outcome == 'failure' && steps.deploy-to-webapp-attempt-2.outcome == 'failure'
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'pomo'
+          slot-name: 'persistance'
+          package: .
+
+      - name: Fail if all deploy attempts failed
+        if: steps.deploy-to-webapp-attempt-1.outcome == 'failure' && steps.deploy-to-webapp-attempt-2.outcome == 'failure' && steps.deploy-to-webapp-attempt-3.outcome == 'failure'
+        run: |
+          echo "All deploy attempts failed after retries."
+          exit 1
           
