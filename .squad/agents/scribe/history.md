@@ -13,6 +13,7 @@ Agent Scribe initialized and ready for work.
 📌 2026-05-30: Merged decision inbox notes into `.squad/decisions.md`, including Dallas mobile reorder UX decision
 📌 2026-05-30: Added orchestration and session logs for Dallas completed work
 📌 2026-05-30: Logged Dallas timer refresh persistence completion in orchestration and session records
+📌 2026-05-30: Merged Dallas remove-desktop-drag decision into `.squad/decisions.md` and updated Dallas/session history entries using tracked `.squad` files only
 
 ## Learnings
 

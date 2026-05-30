@@ -49,6 +49,14 @@
 - **Scope:** Frontend-only (`src/components/TaskItem.tsx`, `src/App.tsx` wiring); no API/schema/data-contract changes.
 - **Source:** `.squad/decisions/inbox/dallas-reorder-ux-choice.md`
 
+### 2026-05-30: Remove Drag Reorder Across All Devices
+- **By:** Dallas (Frontend Dev)
+- **Decision:** Remove task and subtask drag-and-drop reorder behavior entirely on all devices, including desktop.
+- **Rationale:** Enforce one consistent reorder interaction model everywhere using explicit controls only.
+- **UX Scope:** Reorder remains available through up/down arrow buttons and three-dot menu move actions.
+- **Implementation Scope:** Frontend-only updates in task list UI wiring and task item components; no backend/API/schema/data-contract changes.
+- **Source:** `.squad/decisions/inbox/dallas-remove-desktop-drag.md`
+
 ## Governance
 
 - All meaningful changes require team consensus

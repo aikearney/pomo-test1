@@ -26,3 +26,4 @@ Agent: Scribe
 - Updated Dallas and Scribe history notes to reflect timer refresh persistence completion and documentation.
 - Final: Parker OAuth decision merged; orchestration and history updated; .squad changes committed.
 - Final (Dallas follow-up): merged `dallas-reorder-ux-choice.md` into `.squad/decisions.md`, updated Dallas orchestration/history records, and prepared tracked .squad changes for commit.
+- Final (Dallas drag removal): merged `dallas-remove-desktop-drag.md` into `.squad/decisions.md`, updated Dallas history with completion status, and logged this Scribe integration pass using tracked `.squad` files only.
