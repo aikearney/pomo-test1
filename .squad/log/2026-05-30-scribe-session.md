@@ -15,6 +15,8 @@ Agent: Scribe
   - Created orchestration log entry for Parker's OAuth implementation work
   - Updated Parker's history.md with OAuth implementation completion note
   - Staged and committed only .squad files touched by Scribe
+- Logged Ash deployment workflow hardening completion in orchestration and session records.
+- Reviewed decision inbox for an Ash-specific note for this task; no merge required.
 
 ## Notes
 - Decision inbox entries are now reflected in the canonical decisions document.
@@ -27,3 +29,4 @@ Agent: Scribe
 - Final: Parker OAuth decision merged; orchestration and history updated; .squad changes committed.
 - Final (Dallas follow-up): merged `dallas-reorder-ux-choice.md` into `.squad/decisions.md`, updated Dallas orchestration/history records, and prepared tracked .squad changes for commit.
 - Final (Dallas drag removal): merged `dallas-remove-desktop-drag.md` into `.squad/decisions.md`, updated Dallas history with completion status, and logged this Scribe integration pass using tracked `.squad` files only.
+- Final (Ash deployment hardening): logged completion in orchestration/session records, updated Ash history, and confirmed no Ash-specific decision inbox merge was pending.
