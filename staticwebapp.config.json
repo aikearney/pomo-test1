@@ -6,6 +6,12 @@
           "clientIdSettingName": "GOOGLE_CLIENT_ID",
           "clientSecretSettingName": "GOOGLE_CLIENT_SECRET"
         }
+      },
+      "facebook": {
+        "registration": {
+          "clientIdSettingName": "FACEBOOK_APP_ID",
+          "clientSecretSettingName": "FACEBOOK_APP_SECRET"
+        }
       }
     }
   },

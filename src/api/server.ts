@@ -1,8 +1,11 @@
 import express, { type Request, type Response, type NextFunction, type RequestHandler } from "express";
 import path from "node:path";
 import { v4 as uuid } from "uuid";
+import session from "express-session";
+import passport from "passport";
 import { getUserId } from "./shared/auth";
 import { getListsContainer, getTasksContainer } from "./shared/cosmos";
+import { isOAuthProviderConfigured, getConfiguredProviders } from "./shared/oauth";
 
 const app = express();
 const port = Number(process.env.PORT ?? process.env.API_PORT ?? 7071);
@@ -10,10 +13,40 @@ const frontendDistPath = process.env.FRONTEND_DIST_PATH
   ? path.resolve(process.env.FRONTEND_DIST_PATH)
   : path.resolve(process.cwd(), "../../dist");
 
+// Session configuration for OAuth state management
+const sessionSecret = process.env.SESSION_SECRET || "dev-secret-change-in-production";
+app.use(
+  session({
+    secret: sessionSecret,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: process.env.NODE_ENV === "production", // HTTPS only in production
+      httpOnly: true,
+      sameSite: "lax",
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    },
+  })
+);
+
 app.use(express.json());
+app.use(passport.initialize());
+app.use(passport.session());
 
 function getAuthenticatedUserId(req: Request): string | undefined {
-  return getUserId({ headers: req.headers });
+  // First check for Azure Easy Auth headers (when running in App Service)
+  const easyAuthUser = getUserId({ headers: req.headers });
+  if (easyAuthUser) {
+    return easyAuthUser;
+  }
+
+  // Fall back to passport-authenticated user
+  const passportUser = (req.user as any);
+  if (passportUser?.id) {
+    return passportUser.id;
+  }
+
+  return undefined;
 }
 
 // Wrapper to catch Cosmos connection errors gracefully
@@ -33,6 +66,103 @@ function asyncHandler(fn: (req: Request, res: Response, next?: NextFunction) => 
     });
   };
 }
+
+// ===== Auth Endpoints =====
+
+// GET /.auth/me - Get current authentication info
+app.get("/.auth/me", (req: Request, res: Response) => {
+  const userId = getAuthenticatedUserId(req);
+  const user = (req.user as any) || null;
+
+  if (!userId && !user) {
+    res.status(401).json({ statusCode: 401 });
+    return;
+  }
+
+  // Return auth info in the format expected by the frontend
+  const authInfo = [
+    {
+      user_id: userId || user?.id || "unknown",
+      user_claims: [
+        {
+          typ: "name",
+          val: user?.displayName || "User",
+        },
+        {
+          typ: "preferred_username",
+          val: user?.email || user?.id,
+        },
+      ],
+    },
+  ];
+
+  res.status(200).json(authInfo);
+});
+
+// GET /.auth/login/:provider - Initiate OAuth login
+app.get("/.auth/login/:provider", (req: Request, res: Response, next: NextFunction) => {
+  const provider = req.params.provider as string;
+  const redirect = req.query.post_login_redirect_uri as string;
+
+  // Store the post-login redirect URI in the session
+  if (redirect) {
+    req.session.postLoginRedirect = redirect;
+  }
+
+  if (!isOAuthProviderConfigured(provider)) {
+    console.warn(`OAuth provider '${provider}' is not configured`);
+    res.status(400).json({
+      error: "Provider not configured",
+      message: `OAuth provider '${provider}' is not configured. Configured providers: ${getConfiguredProviders().join(", ")}`,
+    });
+    return;
+  }
+
+  // Use passport to authenticate with the OAuth provider
+  passport.authenticate(provider, {
+    scope: provider === "google"
+      ? ["profile", "email"]
+      : provider === "facebook"
+        ? ["public_profile", "email"]
+        : ["profile", "email"],
+  })(req, res, next);
+});
+
+// GET /.auth/callback/:provider - OAuth callback
+app.get(
+  "/.auth/callback/:provider",
+  (req: Request, res: Response, next: NextFunction) => {
+    const provider = req.params.provider as string;
+
+    passport.authenticate(provider, {
+      failureRedirect: `/?error=auth_failed&provider=${provider}`,
+    })(req, res, next);
+  },
+  (req: Request, res: Response) => {
+    // Authentication successful
+    const redirect = req.session.postLoginRedirect || "/";
+    delete req.session.postLoginRedirect;
+    res.redirect(redirect);
+  }
+);
+
+// GET /.auth/logout - Logout
+app.get("/.auth/logout", (req: Request, res: Response, next: NextFunction) => {
+  const redirect = req.query.post_logout_redirect_uri as string;
+
+  req.logout((err) => {
+    if (err) {
+      return next(err);
+    }
+
+    req.session.destroy(() => {
+      res.redirect(redirect || "/");
+    });
+  });
+});
+
+// ===== API Routes =====
+
 
 app.get("/api/lists", asyncHandler(async (req, res) => {
   const userId = getAuthenticatedUserId(req);
