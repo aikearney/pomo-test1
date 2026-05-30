@@ -84,6 +84,113 @@ async function apiFetch<T = any>(
   return (await res.json()) as T
 }
 
+const TIMER_RUNTIME_STORAGE_KEY = 'pomodoro-timer-runtime'
+
+type PersistedTimerRuntime = {
+  timerState: TimerState
+  currentTaskListIdForTimer: string | null
+  persistedAt: number
+}
+
+function createDefaultTimerState(): TimerState {
+  return {
+    phase: 'idle',
+    remainingSeconds: getWorkDuration(),
+    isRunning: false,
+    currentTaskId: null,
+    completedIterations: 0,
+    needsAcknowledgment: false,
+    isLongBreakNext: false,
+  }
+}
+
+function readPersistedTimerRuntime(): PersistedTimerRuntime | null {
+  const raw = localStorage.getItem(TIMER_RUNTIME_STORAGE_KEY)
+  if (!raw) return null
+
+  try {
+    const parsed = JSON.parse(raw) as Partial<PersistedTimerRuntime>
+    const timerState = parsed.timerState
+
+    if (!timerState || typeof timerState !== 'object') return null
+    if (
+      timerState.phase !== 'idle' &&
+      timerState.phase !== 'work' &&
+      timerState.phase !== 'break' &&
+      timerState.phase !== 'longBreak'
+    ) {
+      return null
+    }
+
+    if (
+      typeof timerState.remainingSeconds !== 'number' ||
+      typeof timerState.isRunning !== 'boolean' ||
+      (timerState.currentTaskId !== null &&
+        typeof timerState.currentTaskId !== 'string') ||
+      typeof timerState.completedIterations !== 'number' ||
+      typeof timerState.needsAcknowledgment !== 'boolean' ||
+      typeof timerState.isLongBreakNext !== 'boolean'
+    ) {
+      return null
+    }
+
+    const persistedAt =
+      typeof parsed.persistedAt === 'number' ? parsed.persistedAt : Date.now()
+
+    const currentTaskListIdForTimer =
+      parsed.currentTaskListIdForTimer === null ||
+      typeof parsed.currentTaskListIdForTimer === 'string'
+        ? parsed.currentTaskListIdForTimer
+        : null
+
+    return {
+      timerState,
+      currentTaskListIdForTimer,
+      persistedAt,
+    }
+  } catch {
+    return null
+  }
+}
+
+function getRestoredTimerRuntime(): {
+  timerState: TimerState
+  currentTaskListIdForTimer: string | null
+} {
+  const persisted = readPersistedTimerRuntime()
+  if (!persisted) {
+    return {
+      timerState: createDefaultTimerState(),
+      currentTaskListIdForTimer: null,
+    }
+  }
+
+  let restoredTimerState = persisted.timerState
+
+  if (restoredTimerState.isRunning && !restoredTimerState.needsAcknowledgment) {
+    const elapsedSeconds = Math.max(
+      0,
+      Math.floor((Date.now() - persisted.persistedAt) / 1000)
+    )
+    const adjustedRemaining = Math.max(
+      0,
+      restoredTimerState.remainingSeconds - elapsedSeconds
+    )
+
+    restoredTimerState = {
+      ...restoredTimerState,
+      remainingSeconds: adjustedRemaining,
+      isRunning: adjustedRemaining > 0,
+      needsAcknowledgment: adjustedRemaining === 0,
+    }
+  }
+
+  return {
+    timerState: restoredTimerState,
+    currentTaskListIdForTimer: persisted.currentTaskListIdForTimer,
+  }
+}
+
 function App() {
   // --- LISTS + TASKS (REST-backed) ---
 
@@ -395,19 +502,15 @@ function App() {
   const beepingRef = useRef<number | null>(null)
   const addTaskInputRef = useRef<HTMLInputElement>(null)
 
-  const [timerState, setTimerState] = useState<TimerState>({
-    phase: 'idle',
-    remainingSeconds: getWorkDuration(),
-    isRunning: false,
-    currentTaskId: null,
-    completedIterations: 0,
-    needsAcknowledgment: false,
-    isLongBreakNext: false,
+  const [timerState, setTimerState] = useState<TimerState>(() => {
+    return getRestoredTimerRuntime().timerState
   })
 
   const [currentTaskListIdForTimer, setCurrentTaskListIdForTimer] = useState<
     string | null
-  >(null)
+  >(() => {
+    return getRestoredTimerRuntime().currentTaskListIdForTimer
+  })
 
   const [isAddingTask, setIsAddingTask] = useState(false)
   const [newTaskName, setNewTaskName] = useState('')
@@ -439,6 +542,17 @@ function App() {
       }
     }
   }, [timerState.needsAcknowledgment, timerState.isLongBreakNext, isMuted])
+
+  useEffect(() => {
+    localStorage.setItem(
+      TIMER_RUNTIME_STORAGE_KEY,
+      JSON.stringify({
+        timerState,
+        currentTaskListIdForTimer,
+        persistedAt: Date.now(),
+      } satisfies PersistedTimerRuntime)
+    )
+  }, [timerState, currentTaskListIdForTimer])
 
   useEffect(() => {
     if (timerState.isRunning && !timerState.needsAcknowledgment) {
@@ -855,7 +969,6 @@ function App() {
         description: `${
           created.name
         } will repeat ${
-          // @ts-expect-error: recurrence may be optional
           created.recurrence ? `every ${created.recurrence.interval} ${created.recurrence.unit}` : ''
         }`,
       })
