@@ -82,50 +82,11 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_D973C448A770474B91CA1E69470D1E7F }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_33D8C6649C79408B9268589A55FF4C4F }}
 
-      - name: Stabilize App Service SCM before deploy
-        run: |
-          # Mitigate transient SCM/Kudu restarts after recent platform/management operations.
-          sleep 30
-
-      - name: Deploy to Azure Web App (attempt 1)
-        id: deploy-to-webapp-attempt-1
-        uses: azure/webapps-deploy@v3
-        continue-on-error: true
-        with:
-          app-name: 'pomo'
-          slot-name: 'test1'
-          package: .
-
-      - name: Backoff before deploy retry 2
-        if: steps.deploy-to-webapp-attempt-1.outcome == 'failure'
-        run: sleep 45
-
-      - name: Deploy to Azure Web App (attempt 2)
-        id: deploy-to-webapp-attempt-2
-        if: steps.deploy-to-webapp-attempt-1.outcome == 'failure'
-        uses: azure/webapps-deploy@v3
-        continue-on-error: true
-        with:
-          app-name: 'pomo'
-          slot-name: 'test1'
-          package: .
-
-      - name: Backoff before deploy retry 3
-        if: steps.deploy-to-webapp-attempt-1.outcome == 'failure' && steps.deploy-to-webapp-attempt-2.outcome == 'failure'
-        run: sleep 90
-
-      - name: Deploy to Azure Web App (attempt 3)
-        id: deploy-to-webapp-attempt-3
-        if: steps.deploy-to-webapp-attempt-1.outcome == 'failure' && steps.deploy-to-webapp-attempt-2.outcome == 'failure'
+      - name: 'Deploy to Azure Web App'
+        id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'pomo'
           slot-name: 'test1'
           package: .
-
-      - name: Fail if all deploy attempts failed
-        if: steps.deploy-to-webapp-attempt-1.outcome == 'failure' && steps.deploy-to-webapp-attempt-2.outcome == 'failure' && steps.deploy-to-webapp-attempt-3.outcome == 'failure'
-        run: |
-          echo "All deploy attempts failed after retries."
-          exit 1
           
