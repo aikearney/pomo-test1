@@ -1,11 +1,18 @@
-import { useState, useRef } from 'react'
+import { useRef, useState } from 'react'
 import { Task, Subtask, RecurrenceSettings } from '@/lib/types'
 import { calculateTaskIterations, formatTimeDisplay, calculateTotalTime, formatRecurrenceDescription, getTimeUntilReactivation } from '@/lib/timer-utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
-import { CaretDown, CaretRight, Plus, Trash, Square, DotsSixVertical, PlayCircle, CaretUp, X, Star, ArrowClockwise } from '@phosphor-icons/react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu'
+import { CaretDown, CaretRight, Plus, Trash, PlayCircle, CaretUp, Star, ArrowClockwise, DotsThree } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
 import { RecurrenceDialog } from '@/components/RecurrenceDialog'
 
@@ -14,14 +21,7 @@ interface TaskItemProps {
   onUpdate: (task: Task) => void
   onDelete: () => void
   isActive: boolean
-  onDragStart: () => void
-  onDragEnd: () => void
-  onDragOver: (e: React.DragEvent) => void
-  onDrop: () => void
-  isDragging: boolean
-  isDragOver: boolean
   onSelect?: () => void
-  onTouchReorder?: (direction: 'up' | 'down') => void
   onMoveUp?: () => void
   onMoveDown?: () => void
   canMoveUp?: boolean
@@ -33,12 +33,6 @@ interface SubtaskItemProps {
   onUpdate: (subtask: Subtask) => void
   onToggleComplete: () => void
   onDelete: () => void
-  onDragStart: () => void
-  onDragEnd: () => void
-  onDragOver: (e: React.DragEvent) => void
-  onDrop: (e: React.DragEvent) => void
-  isDragging: boolean
-  isDragOver: boolean
   onAddNew?: () => void
   onMoveUp?: () => void
   onMoveDown?: () => void
@@ -51,12 +45,6 @@ function SubtaskItem({
   onUpdate,
   onToggleComplete,
   onDelete,
-  onDragStart,
-  onDragEnd,
-  onDragOver,
-  onDrop,
-  isDragging,
-  isDragOver,
   onAddNew,
   onMoveUp,
   onMoveDown,
@@ -118,23 +106,10 @@ function SubtaskItem({
 
   return (
     <div
-      draggable={!isEditing}
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
       className={cn(
-        'flex items-start sm:items-center gap-2 text-sm p-1.5 rounded transition-all',
-        isDragging && 'opacity-50 scale-95 rotate-1',
-        isDragOver && 'bg-accent/20 scale-[1.02]'
+        'flex items-start sm:items-center gap-2 text-sm p-1.5 rounded transition-all'
       )}
     >
-      <div 
-        className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground transition-colors"
-        title="Drag to reorder"
-      >
-        <DotsSixVertical size={14} weight="bold" />
-      </div>
       <Checkbox
         checked={subtask.completed}
         onCheckedChange={onToggleComplete}
@@ -180,7 +155,7 @@ function SubtaskItem({
           >
             {subtask.name}
           </span>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 shrink-0">
             <Button
               variant="ghost"
               size="icon"
@@ -204,20 +179,38 @@ function SubtaskItem({
           </div>
           <Badge 
             variant="outline" 
-            className="text-xs cursor-pointer hover:bg-accent/10 transition-colors"
+            className="text-xs cursor-pointer hover:bg-accent/10 transition-colors shrink-0"
             onClick={startEditing}
           >
             {subtask.iterations}
           </Badge>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            onClick={onDelete}
-            title="Delete subtask"
-          >
-            <Trash size={12} />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 shrink-0"
+                title="More actions"
+              >
+                <DotsThree size={14} weight="bold" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={onMoveUp} disabled={!canMoveUp}>
+                Move up
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onMoveDown} disabled={!canMoveDown}>
+                Move down
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={onDelete}
+                className="text-destructive focus:text-destructive"
+              >
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </>
       )}
     </div>
@@ -229,14 +222,7 @@ export function TaskItem({
   onUpdate, 
   onDelete, 
   isActive,
-  onDragStart,
-  onDragEnd,
-  onDragOver,
-  onDrop,
-  isDragging,
-  isDragOver,
   onSelect,
-  onTouchReorder,
   onMoveUp,
   onMoveDown,
   canMoveUp = false,
@@ -245,15 +231,10 @@ export function TaskItem({
   const [isAddingSubtask, setIsAddingSubtask] = useState(false)
   const [subtaskName, setSubtaskName] = useState('')
   const [subtaskIterations, setSubtaskIterations] = useState('1')
-  const [draggedSubtaskId, setDraggedSubtaskId] = useState<string | null>(null)
-  const [dragOverSubtaskId, setDragOverSubtaskId] = useState<string | null>(null)
   const [isEditing, setIsEditing] = useState(false)
   const [editName, setEditName] = useState(task.name)
   const [editIterations, setEditIterations] = useState(task.iterations.toString())
-  const [showReorderButtons, setShowReorderButtons] = useState(false)
   const [showRecurrenceDialog, setShowRecurrenceDialog] = useState(false)
-  const longPressTimer = useRef<number | null>(null)
-  const touchStartPos = useRef<{ x: number; y: number } | null>(null)
   const subtaskInputRef = useRef<HTMLInputElement>(null)
 
   const totalIterations = calculateTaskIterations(task)
@@ -366,50 +347,6 @@ export function TaskItem({
     })
   }
 
-  const handleSubtaskDragStart = (subtaskId: string) => {
-    setDraggedSubtaskId(subtaskId)
-  }
-
-  const handleSubtaskDragEnd = () => {
-    setDraggedSubtaskId(null)
-    setDragOverSubtaskId(null)
-  }
-
-  const handleSubtaskDragOver = (e: React.DragEvent, subtaskId: string) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (draggedSubtaskId && draggedSubtaskId !== subtaskId) {
-      setDragOverSubtaskId(subtaskId)
-    }
-  }
-
-  const handleSubtaskDrop = (e: React.DragEvent, targetSubtaskId: string) => {
-    e.stopPropagation()
-    
-    if (!draggedSubtaskId || draggedSubtaskId === targetSubtaskId) {
-      return
-    }
-
-    const draggedIndex = task.subtasks.findIndex(st => st.id === draggedSubtaskId)
-    const targetIndex = task.subtasks.findIndex(st => st.id === targetSubtaskId)
-
-    if (draggedIndex === -1 || targetIndex === -1) {
-      return
-    }
-
-    const newSubtasks = [...task.subtasks]
-    const [draggedSubtask] = newSubtasks.splice(draggedIndex, 1)
-    newSubtasks.splice(targetIndex, 0, draggedSubtask)
-
-    onUpdate({
-      ...task,
-      subtasks: newSubtasks
-    })
-
-    setDraggedSubtaskId(null)
-    setDragOverSubtaskId(null)
-  }
-
   const startEditing = (e: React.MouseEvent) => {
     e.stopPropagation()
     setEditName(task.name)
@@ -473,111 +410,20 @@ export function TaskItem({
     }, 100)
   }
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (isEditing) return
-    
-    const touch = e.touches[0]
-    touchStartPos.current = { x: touch.clientX, y: touch.clientY }
-    
-    longPressTimer.current = window.setTimeout(() => {
-      setShowReorderButtons(true)
-    }, 500)
-  }
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!touchStartPos.current || !longPressTimer.current) return
-    
-    const touch = e.touches[0]
-    const deltaX = Math.abs(touch.clientX - touchStartPos.current.x)
-    const deltaY = Math.abs(touch.clientY - touchStartPos.current.y)
-    
-    if (deltaX > 10 || deltaY > 10) {
-      if (longPressTimer.current) {
-        clearTimeout(longPressTimer.current)
-        longPressTimer.current = null
-      }
-    }
-  }
-
-  const handleTouchEnd = () => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current)
-      longPressTimer.current = null
-    }
-    touchStartPos.current = null
-  }
-
-  const handleReorder = (direction: 'up' | 'down') => {
-    if (onTouchReorder) {
-      onTouchReorder(direction)
-    }
-    setShowReorderButtons(false)
-  }
-
   const handleSaveRecurrence = (recurrence: RecurrenceSettings) => {
     onUpdate({ ...task, recurrence })
   }
 
   return (
     <div
-      draggable={!isEditing}
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
       className={cn(
         'border rounded-lg p-2.5 sm:p-3 transition-all relative',
         isActive ? 'border-accent bg-accent/5 ring-2 ring-accent/20' : 'border-border bg-card',
         task.completed && 'opacity-60',
-        task.isHighPriority && !task.completed && 'border-primary bg-primary/5',
-        isDragging && 'opacity-50 scale-95 rotate-2',
-        isDragOver && 'border-accent border-2 scale-[1.02] shadow-lg',
-        showReorderButtons && 'ring-2 ring-primary'
+        task.isHighPriority && !task.completed && 'border-primary bg-primary/5'
       )}
     >
-      {showReorderButtons && (
-        <>
-          <div 
-            className="absolute inset-0 bg-background/95 backdrop-blur-sm rounded-lg z-20 flex items-center justify-center gap-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <Button
-              size="lg"
-              variant="default"
-              className="h-14 w-14 rounded-full shadow-lg"
-              onClick={() => handleReorder('up')}
-            >
-              <CaretUp size={28} weight="bold" />
-            </Button>
-            <Button
-              size="lg"
-              variant="default"
-              className="h-14 w-14 rounded-full shadow-lg"
-              onClick={() => handleReorder('down')}
-            >
-              <CaretDown size={28} weight="bold" />
-            </Button>
-            <Button
-              size="lg"
-              variant="secondary"
-              className="h-14 w-14 rounded-full shadow-lg"
-              onClick={() => setShowReorderButtons(false)}
-            >
-              <X size={28} />
-            </Button>
-          </div>
-        </>
-      )}
       <div className="flex items-start gap-2">
-        <div 
-          className="cursor-grab active:cursor-grabbing mt-1 text-muted-foreground hover:text-foreground transition-colors"
-          title="Drag to reorder"
-        >
-          <DotsSixVertical size={16} weight="bold" />
-        </div>
         <Button
           variant="ghost"
           size="icon"
@@ -683,12 +529,6 @@ export function TaskItem({
                   onUpdate={(updatedSubtask) => updateSubtask(subtask.id, updatedSubtask)}
                   onToggleComplete={() => toggleSubtaskComplete(subtask.id)}
                   onDelete={() => deleteSubtask(subtask.id)}
-                  onDragStart={() => handleSubtaskDragStart(subtask.id)}
-                  onDragEnd={handleSubtaskDragEnd}
-                  onDragOver={(e) => handleSubtaskDragOver(e, subtask.id)}
-                  onDrop={(e) => handleSubtaskDrop(e, subtask.id)}
-                  isDragging={draggedSubtaskId === subtask.id}
-                  isDragOver={dragOverSubtaskId === subtask.id}
                   onAddNew={() => setIsAddingSubtask(true)}
                   onMoveUp={() => moveSubtask(subtask.id, 'up')}
                   onMoveDown={() => moveSubtask(subtask.id, 'down')}
@@ -758,7 +598,8 @@ export function TaskItem({
         </div>
 
         {!isEditing && (
-          <div className="flex items-center justify-end gap-1 flex-wrap">
+          <div className="flex items-center justify-end gap-1.5 flex-wrap shrink-0">
+            {/* Move controls */}
             <Button
               variant="ghost"
               size="icon"
@@ -785,37 +626,8 @@ export function TaskItem({
             >
               <CaretDown size={16} />
             </Button>
-            {!task.completed && (
-              <>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setShowRecurrenceDialog(true)
-                  }}
-                  className={cn(
-                    "h-7 w-7",
-                    task.recurrence?.enabled && "text-primary"
-                  )}
-                  title="Set recurrence"
-                >
-                  <ArrowClockwise size={16} weight={task.recurrence?.enabled ? "bold" : "regular"} />
-                </Button>
-                <Button
-                  variant={task.isHighPriority ? "default" : "ghost"}
-                  size="icon"
-                  onClick={togglePriority}
-                  className={cn(
-                    "h-7 w-7",
-                    task.isHighPriority && "bg-primary text-primary-foreground hover:bg-primary/90"
-                  )}
-                  title={task.isHighPriority ? "Remove high priority" : "Set as high priority"}
-                >
-                  <Star size={16} weight={task.isHighPriority ? "fill" : "regular"} />
-                </Button>
-              </>
-            )}
+
+            {/* Primary action - Select/Play */}
             {!task.completed && onSelect && (
               <Button
                 variant={isActive ? "default" : "outline"}
@@ -831,14 +643,77 @@ export function TaskItem({
                 <span className="hidden sm:inline">{isActive ? 'Active' : 'Select'}</span>
               </Button>
             )}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onDelete}
-              className="h-7 w-7"
-            >
-              <Trash size={16} />
-            </Button>
+
+            {/* Secondary actions dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  title="More options"
+                >
+                  <DotsThree size={16} weight="bold" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onMoveUp?.()
+                  }}
+                  disabled={!canMoveUp}
+                >
+                  Move up
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onMoveDown?.()
+                  }}
+                  disabled={!canMoveDown}
+                >
+                  Move down
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                {!task.completed && (
+                  <>
+                    <DropdownMenuItem
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setShowRecurrenceDialog(true)
+                      }}
+                      className={cn(
+                        task.recurrence?.enabled && "text-primary font-semibold"
+                      )}
+                    >
+                      <ArrowClockwise size={16} className="mr-2" weight={task.recurrence?.enabled ? "bold" : "regular"} />
+                      {task.recurrence?.enabled 
+                        ? `Recurrence: ${formatRecurrenceDescription(task.recurrence.interval, task.recurrence.unit)}`
+                        : 'Set recurrence'
+                      }
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={togglePriority}
+                      className={cn(
+                        task.isHighPriority && "text-primary font-semibold"
+                      )}
+                    >
+                      <Star size={16} className="mr-2" weight={task.isHighPriority ? "fill" : "regular"} />
+                      {task.isHighPriority ? 'Remove high priority' : 'Set high priority'}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+                <DropdownMenuItem
+                  onClick={onDelete}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash size={16} className="mr-2" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         )}
       </div>

@@ -515,8 +515,6 @@ function App() {
   const [isAddingTask, setIsAddingTask] = useState(false)
   const [newTaskName, setNewTaskName] = useState('')
   const [newTaskIterations, setNewTaskIterations] = useState('1')
-  const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null)
-  const [dragOverTaskId, setDragOverTaskId] = useState<string | null>(null)
   const [showStopDialog, setShowStopDialog] = useState(false)
   const [showAcknowledgmentDialog, setShowAcknowledgmentDialog] =
     useState(false)
@@ -1480,49 +1478,6 @@ function App() {
     setAllTasksCollapsed(newCollapsedState)
   }
 
-  const handleDragStart = (taskId: string) => {
-    setDraggedTaskId(taskId)
-  }
-
-  const handleDragEnd = () => {
-    setDraggedTaskId(null)
-    setDragOverTaskId(null)
-  }
-
-  const handleDragOver = (e: React.DragEvent, taskId: string) => {
-    e.preventDefault()
-    if (draggedTaskId && draggedTaskId !== taskId) {
-      setDragOverTaskId(taskId)
-    }
-  }
-
-  const handleDrop = (targetTaskId: string) => {
-    if (!draggedTaskId || draggedTaskId === targetTaskId) {
-      return
-    }
-
-    setTasks((currentTasks) => {
-      const tasks = currentTasks || []
-      const draggedIndex = tasks.findIndex((t) => t.id === draggedTaskId)
-      const targetIndex = tasks.findIndex((t) => t.id === targetTaskId)
-
-      if (draggedIndex === -1 || targetIndex === -1) {
-        return tasks
-      }
-
-      const newTasks = [...tasks]
-      const [draggedTask] = newTasks.splice(draggedIndex, 1)
-      newTasks.splice(targetIndex, 0, draggedTask)
-
-      const incompleteTasks = newTasks.filter((t) => !t.completed)
-      const completedTasks = newTasks.filter((t) => t.completed)
-      return [...incompleteTasks, ...completedTasks]
-    })
-
-    setDraggedTaskId(null)
-    setDragOverTaskId(null)
-  }
-
   const handleTouchReorder = (
     taskId: string,
     direction: 'up' | 'down'
@@ -2014,16 +1969,7 @@ function App() {
                                 }
                                 onDelete={() => void deleteTask(task.id)}
                                 isActive={task.id === timerState.currentTaskId}
-                                onDragStart={() => handleDragStart(task.id)}
-                                onDragEnd={handleDragEnd}
-                                onDragOver={(e) => handleDragOver(e, task.id)}
-                                onDrop={() => handleDrop(task.id)}
-                                isDragging={draggedTaskId === task.id}
-                                isDragOver={dragOverTaskId === task.id}
                                 onSelect={() => selectTask(task.id)}
-                                onTouchReorder={(direction) =>
-                                  handleTouchReorder(task.id, direction)
-                                }
                                 onMoveUp={() => handleTouchReorder(task.id, 'up')}
                                 onMoveDown={() => handleTouchReorder(task.id, 'down')}
                                 canMoveUp={incompleteTasks.findIndex((t) => t.id === task.id) > 0}
@@ -2096,20 +2042,7 @@ function App() {
                                       isActive={
                                         task.id === timerState.currentTaskId
                                       }
-                                      onDragStart={() =>
-                                        handleDragStart(task.id)
-                                      }
-                                      onDragEnd={handleDragEnd}
-                                      onDragOver={(e) =>
-                                        handleDragOver(e, task.id)
-                                      }
-                                      onDrop={() => handleDrop(task.id)}
-                                      isDragging={draggedTaskId === task.id}
-                                      isDragOver={dragOverTaskId === task.id}
                                       onSelect={() => selectTask(task.id)}
-                                      onTouchReorder={(direction) =>
-                                        handleTouchReorder(task.id, direction)
-                                      }
                                       onMoveUp={() => handleTouchReorder(task.id, 'up')}
                                       onMoveDown={() => handleTouchReorder(task.id, 'down')}
                                       canMoveUp={completedTasks.findIndex((t) => t.id === task.id) > 0}
