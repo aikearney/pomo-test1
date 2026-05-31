@@ -84,68 +84,6 @@ async function apiFetch<T = any>(
   return (await res.json()) as T
 }
 
-const LOCAL_STORAGE_BACKUP_VERSION = 1
-const LOCAL_STORAGE_BACKUP_PREFIX = 'pomodoro-'
-const LOCAL_STORAGE_BACKUP_SPECIAL_KEYS = new Set(['personalTasks'])
-
-type LocalStorageBackup = {
-  version: number
-  exportedAt: number
-  entries: Record<string, string>
-}
-
-function isLocalStorageBackupKey(key: string) {
-  return (
-    key.startsWith(LOCAL_STORAGE_BACKUP_PREFIX) ||
-    LOCAL_STORAGE_BACKUP_SPECIAL_KEYS.has(key)
-  )
-}
-
-function formatBackupTimestamp(date: Date) {
-  return date.toISOString().replace(/[:.]/g, '-')
-}
-
-function readLocalStorageBackupEntries() {
-  const entries: Record<string, string> = {}
-
-  for (let index = 0; index < localStorage.length; index += 1) {
-    const key = localStorage.key(index)
-    if (!key || !isLocalStorageBackupKey(key)) continue
-
-    const value = localStorage.getItem(key)
-    if (value !== null) {
-      entries[key] = value
-    }
-  }
-
-  return entries
-}
-
-function parseLocalStorageBackup(value: unknown): LocalStorageBackup | null {
-  if (!value || typeof value !== 'object') return null
-
-  const candidate = value as Partial<LocalStorageBackup>
-  if (candidate.version !== LOCAL_STORAGE_BACKUP_VERSION) return null
-  if (typeof candidate.exportedAt !== 'number') return null
-  if (!candidate.entries || typeof candidate.entries !== 'object') return null
-
-  const entries = candidate.entries as Record<string, unknown>
-  const validatedEntries: Record<string, string> = {}
-
-  for (const [key, entryValue] of Object.entries(entries)) {
-    if (typeof key !== 'string' || typeof entryValue !== 'string') {
-      return null
-    }
-    validatedEntries[key] = entryValue
-  }
-
-  return {
-    version: candidate.version,
-    exportedAt: candidate.exportedAt,
-    entries: validatedEntries,
-  }
-}
-
 const TIMER_RUNTIME_STORAGE_KEY = 'pomodoro-timer-runtime'
 
 type PersistedTimerRuntime = {
@@ -1374,79 +1312,6 @@ function App() {
     }
   }
 
-  const moveSubtaskBetweenTasks = (sourceTaskId: string, subtaskId: string, targetTaskId: string) => {
-    // Find the source and target tasks
-    const sourceTask = (tasks || []).find((t) => t.id === sourceTaskId)
-    const targetTask = (tasks || []).find((t) => t.id === targetTaskId)
-
-    if (!sourceTask || !targetTask || sourceTaskId === targetTaskId) {
-      toast.error('Cannot move subtask', {
-        description: 'Invalid source or target task',
-      })
-      return
-    }
-
-    // Find the subtask in the source task
-    const subtask = sourceTask.subtasks.find((st) => st.id === subtaskId)
-    if (!subtask) {
-      toast.error('Subtask not found', {
-        description: 'The subtask could not be found in the source task',
-      })
-      return
-    }
-
-    // Remove from source task
-    const updatedSourceTask = {
-      ...sourceTask,
-      subtasks: sourceTask.subtasks.filter((st) => st.id !== subtaskId),
-    }
-
-    // Add to target task, preserving incomplete/completed order
-    const updatedTargetSubtasks = [...targetTask.subtasks]
-    if (subtask.completed) {
-      // Add to completed section
-      updatedTargetSubtasks.push(subtask)
-    } else {
-      // Add to incomplete section before first completed
-      const firstCompletedIndex = updatedTargetSubtasks.findIndex((st) => st.completed)
-      if (firstCompletedIndex === -1) {
-        updatedTargetSubtasks.push(subtask)
-      } else {
-        updatedTargetSubtasks.splice(firstCompletedIndex, 0, subtask)
-      }
-    }
-
-    const updatedTargetTask = {
-      ...targetTask,
-      subtasks: updatedTargetSubtasks,
-    }
-
-    // Update both tasks
-    const updatedTasks = (tasks || []).map((t) => {
-      if (t.id === sourceTaskId) return updatedSourceTask
-      if (t.id === targetTaskId) return updatedTargetTask
-      return t
-    })
-
-    // Optimistic update
-    setTasks(updatedTasks)
-    if ((isAnonymousMode || isLocalListId(currentTaskListId)) && currentTaskListId) {
-      persistTasksForList(currentTaskListId, updatedTasks)
-    }
-
-    toast.success('Subtask moved', {
-      description: `Moved to "${targetTask.name}"`,
-    })
-
-    // Persist to server if not in local mode
-    if (!isAnonymousMode && !isLocalListId(sourceTaskId)) {
-      void Promise.all([
-        updateTask(sourceTaskId, updatedSourceTask),
-        updateTask(targetTaskId, updatedTargetTask),
-      ])
-    }
-  }
-
   // --- LIST CRUD (REST-backed) ---
 
   const createTaskList = async (name: string) => {
@@ -1601,76 +1466,6 @@ function App() {
         description: err?.message || 'Please try again.',
       })
     }
-  }
-
-  const exportLocalBackup = () => {
-    const backup: LocalStorageBackup = {
-      version: LOCAL_STORAGE_BACKUP_VERSION,
-      exportedAt: Date.now(),
-      entries: readLocalStorageBackupEntries(),
-    }
-
-    const blob = new Blob([JSON.stringify(backup, null, 2)], {
-      type: 'application/json',
-    })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `pomodoro-local-backup-${formatBackupTimestamp(new Date())}.json`
-    link.click()
-    URL.revokeObjectURL(url)
-
-    toast.success('Local backup exported')
-  }
-
-  const importLocalBackup = (file: File) => {
-    const reader = new FileReader()
-
-    reader.onload = () => {
-      try {
-        const raw = reader.result
-        if (typeof raw !== 'string') {
-          throw new Error('Could not read the backup file')
-        }
-
-        const parsed = parseLocalStorageBackup(JSON.parse(raw))
-        if (!parsed) {
-          throw new Error('Invalid backup format')
-        }
-
-        const keysToReplace = new Set<string>()
-        for (let index = 0; index < localStorage.length; index += 1) {
-          const key = localStorage.key(index)
-          if (key && isLocalStorageBackupKey(key)) {
-            keysToReplace.add(key)
-          }
-        }
-
-        keysToReplace.forEach((key) => {
-          localStorage.removeItem(key)
-        })
-
-        Object.entries(parsed.entries).forEach(([key, value]) => {
-          localStorage.setItem(key, value)
-        })
-
-        toast.success('Local backup imported', {
-          description: 'Reloading your saved lists and preferences…',
-        })
-        window.setTimeout(() => window.location.reload(), 250)
-      } catch (err: any) {
-        console.error('Error importing local backup', err)
-        toast.error('Failed to import backup', {
-          description: err?.message || 'Please choose a valid backup file.',
-        })
-      }
-    }
-
-    reader.onerror = () => {
-      toast.error('Failed to read backup file')
-    }
-
-    reader.readAsText(file)
   }
 
   // --- UI helpers ---
@@ -1888,12 +1683,9 @@ function App() {
               onBackgroundChange={setBackgroundImage}
               onOpacityChange={setBackgroundOpacity}
               onUpload={handleBackgroundUpload}
-              isAnonymousMode={isAnonymousMode}
               isAuthenticated={isAuthenticated}
               onLogin={() => setShowLoginOverlay(true)}
               onLogout={redirectToLogout}
-              onExportLocalData={exportLocalBackup}
-              onImportLocalData={importLocalBackup}
             />
             {!isCompact && (
               <h1 className="hidden md:block font-display text-2xl font-bold text-foreground absolute left-1/2 -translate-x-1/2">
@@ -2182,10 +1974,6 @@ function App() {
                                 onMoveDown={() => handleTouchReorder(task.id, 'down')}
                                 canMoveUp={incompleteTasks.findIndex((t) => t.id === task.id) > 0}
                                 canMoveDown={incompleteTasks.findIndex((t) => t.id === task.id) < incompleteTasks.length - 1}
-                                otherTasks={incompleteTasks.filter((t) => t.id !== task.id)}
-                                onMoveSubtaskToTask={(subtaskId, targetTaskId) =>
-                                  moveSubtaskBetweenTasks(task.id, subtaskId, targetTaskId)
-                                }
                               />
                             </motion.div>
                           ))}
@@ -2259,10 +2047,6 @@ function App() {
                                       onMoveDown={() => handleTouchReorder(task.id, 'down')}
                                       canMoveUp={completedTasks.findIndex((t) => t.id === task.id) > 0}
                                       canMoveDown={completedTasks.findIndex((t) => t.id === task.id) < completedTasks.length - 1}
-                                      otherTasks={(tasks || []).filter((t) => t.id !== task.id)}
-                                      onMoveSubtaskToTask={(subtaskId, targetTaskId) =>
-                                        moveSubtaskBetweenTasks(task.id, subtaskId, targetTaskId)
-                                      }
                                     />
                                   </motion.div>
                                 ))}
