@@ -94,6 +94,11 @@ type LocalStorageBackup = {
   entries: Record<string, string>
 }
 
+type LocalStorageImportOptions = {
+  mode: 'overwrite-current' | 'new-list'
+  newListName?: string
+}
+
 function isLocalStorageBackupKey(key: string) {
   return (
     key.startsWith(LOCAL_STORAGE_BACKUP_PREFIX) ||
@@ -143,6 +148,29 @@ function parseLocalStorageBackup(value: unknown): LocalStorageBackup | null {
     version: candidate.version,
     exportedAt: candidate.exportedAt,
     entries: validatedEntries,
+  }
+}
+
+function parseImportedTaskLists(raw: string | undefined): TaskList[] {
+  if (!raw) return []
+
+  try {
+    const parsed = JSON.parse(raw) as TaskList[]
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter((list) => !!list?.id && !!list?.name)
+  } catch {
+    return []
+  }
+}
+
+function parseImportedTasks(raw: string | undefined): Task[] {
+  if (!raw) return []
+
+  try {
+    const parsed = JSON.parse(raw) as Task[]
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
   }
 }
 
@@ -323,7 +351,10 @@ function App() {
     toast.success('Backup exported')
   }
 
-  const importLocalBackup = async (file: File) => {
+  const importLocalBackup = async (
+    file: File,
+    options: LocalStorageImportOptions
+  ) => {
     try {
       const raw = await file.text()
       const parsed = parseLocalStorageBackup(JSON.parse(raw))
@@ -332,22 +363,55 @@ function App() {
         throw new Error('Invalid backup file')
       }
 
-      const keysToClear: string[] = []
-      for (let index = 0; index < localStorage.length; index += 1) {
-        const key = localStorage.key(index)
-        if (key && isLocalStorageBackupKey(key)) {
-          keysToClear.push(key)
+      const importedLists = parseImportedTaskLists(parsed.entries[LOCAL_LISTS_KEY])
+      const importedSourceList = importedLists[0]
+      const importedSourceListId = importedSourceList?.id || 'personal'
+      const importedTasks = parseImportedTasks(
+        parsed.entries[
+          importedSourceListId === 'personal'
+            ? 'personalTasks'
+            : `pomodoro-local-tasks:${importedSourceListId}`
+        ] || parsed.entries.personalTasks
+      )
+
+      if (options.mode === 'new-list') {
+        const newListName =
+          options.newListName?.trim() ||
+          importedSourceList?.name ||
+          'Imported List'
+
+        const newListId = `local-${Date.now()}`
+        const newList: TaskList = {
+          id: newListId,
+          name: newListName,
+          createdAt: Date.now(),
         }
+
+        const currentLocalLists = readLocalLists().filter((list) => list.id !== 'personal')
+        writeLocalLists([...currentLocalLists, newList])
+        persistTasksForList(newListId, importedTasks)
+        localStorage.setItem('pomodoro-current-list-id', newListId)
+
+        toast.success('Backup imported to new list', {
+          description: `Created "${newListName}" with ${importedTasks.length} tasks. Reloading...`,
+        })
+
+        window.location.reload()
+        return
       }
 
-      keysToClear.forEach((key) => localStorage.removeItem(key))
+      const targetListId =
+        currentTaskListId && isLocalListId(currentTaskListId)
+          ? currentTaskListId
+          : 'personal'
 
-      Object.entries(parsed.entries).forEach(([key, value]) => {
-        localStorage.setItem(key, value)
-      })
+      persistTasksForList(targetListId, importedTasks)
+
+      const currentListName =
+        taskLists.find((list) => list.id === targetListId)?.name || 'current list'
 
       toast.success('Backup imported', {
-        description: 'Reloading local data...',
+        description: `Overwrote "${currentListName}" with ${importedTasks.length} tasks. Reloading...`,
       })
 
       window.location.reload()

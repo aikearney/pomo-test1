@@ -27,6 +27,11 @@ import { Slider } from '@/components/ui/slider'
 import { CaretDown, Plus, Trash, PencilSimple, Check, X, Copy, ChartBar, Image, UploadSimple, DownloadSimple, Palette } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 
+type ImportLocalDataOptions = {
+  mode: 'overwrite-current' | 'new-list'
+  newListName?: string
+}
+
 interface TaskListSelectorProps {
   taskLists: TaskList[]
   currentTaskListId: string
@@ -42,7 +47,7 @@ interface TaskListSelectorProps {
   onOpacityChange: (opacity: number) => void
   onUpload: (file: File) => void
   onExportLocalData?: () => void
-  onImportLocalData?: (file: File) => void
+  onImportLocalData?: (file: File, options: ImportLocalDataOptions) => void
   isAnonymousMode?: boolean
   isAuthenticated?: boolean
   onLogin?: () => void
@@ -144,6 +149,10 @@ export function TaskListSelector({
   const [editingListId, setEditingListId] = useState<string | null>(null)
   const [editingName, setEditingName] = useState('')
   const [deleteConfirmListId, setDeleteConfirmListId] = useState<string | null>(null)
+  const [pendingImportFile, setPendingImportFile] = useState<File | null>(null)
+  const [showImportChoiceDialog, setShowImportChoiceDialog] = useState(false)
+  const [showImportNameDialog, setShowImportNameDialog] = useState(false)
+  const [importListName, setImportListName] = useState('')
   const [isOpen, setIsOpen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const editInputRef = useRef<HTMLInputElement>(null)
@@ -209,8 +218,51 @@ export function TaskListSelector({
     e.target.value = ''
 
     if (file) {
-      onImportLocalData?.(file)
+      setPendingImportFile(file)
+      setImportListName(`${currentTaskList?.name || 'Imported List'} (Imported)`)
+      setShowImportChoiceDialog(true)
+      setIsOpen(false)
     }
+  }
+
+  const resetImportFlow = () => {
+    setPendingImportFile(null)
+    setShowImportChoiceDialog(false)
+    setShowImportNameDialog(false)
+    setImportListName('')
+  }
+
+  const handleImportOverwriteCurrent = () => {
+    if (!pendingImportFile) {
+      resetImportFlow()
+      return
+    }
+    onImportLocalData?.(pendingImportFile, { mode: 'overwrite-current' })
+    resetImportFlow()
+  }
+
+  const handleImportIntoNewList = () => {
+    setShowImportChoiceDialog(false)
+    setShowImportNameDialog(true)
+  }
+
+  const confirmImportIntoNewList = () => {
+    if (!pendingImportFile) {
+      resetImportFlow()
+      return
+    }
+
+    const trimmedName = importListName.trim()
+    if (!trimmedName) {
+      toast.error('Please enter a list name')
+      return
+    }
+
+    onImportLocalData?.(pendingImportFile, {
+      mode: 'new-list',
+      newListName: trimmedName,
+    })
+    resetImportFlow()
   }
 
   return (
@@ -539,6 +591,63 @@ export function TaskListSelector({
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={showImportChoiceDialog}
+        onOpenChange={setShowImportChoiceDialog}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Import local backup</AlertDialogTitle>
+            <AlertDialogDescription>
+              Importing can replace tasks in your current list. Do you want to overwrite the current list or import into a new list?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={resetImportFlow}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-secondary text-secondary-foreground hover:bg-secondary/90"
+              onClick={handleImportIntoNewList}
+            >
+              Import to new list
+            </AlertDialogAction>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleImportOverwriteCurrent}
+            >
+              Overwrite current list
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={showImportNameDialog}
+        onOpenChange={setShowImportNameDialog}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Name new imported list</AlertDialogTitle>
+            <AlertDialogDescription>
+              You can rename the imported list before it is created.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2">
+            <Input
+              value={importListName}
+              onChange={(e) => setImportListName(e.target.value)}
+              placeholder="Imported List"
+              autoFocus
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={resetImportFlow}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmImportIntoNewList}>
+              Continue import
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
