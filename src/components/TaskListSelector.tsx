@@ -30,6 +30,12 @@ import { toast } from 'sonner'
 type ImportLocalDataOptions = {
   mode: 'overwrite-current' | 'new-list' | 'restore-all-replace' | 'restore-all-merge'
   newListName?: string
+  sourceListId?: string
+}
+
+type ImportableBackupList = {
+  id: string
+  name: string
 }
 
 interface TaskListSelectorProps {
@@ -151,8 +157,8 @@ export function TaskListSelector({
   const [deleteConfirmListId, setDeleteConfirmListId] = useState<string | null>(null)
   const [pendingImportFile, setPendingImportFile] = useState<File | null>(null)
   const [showImportChoiceDialog, setShowImportChoiceDialog] = useState(false)
-  const [showImportNameDialog, setShowImportNameDialog] = useState(false)
-  const [importListName, setImportListName] = useState('')
+  const [showImportListDialog, setShowImportListDialog] = useState(false)
+  const [importableBackupLists, setImportableBackupLists] = useState<ImportableBackupList[]>([])
   const [showExportNameDialog, setShowExportNameDialog] = useState(false)
   const [exportFileName, setExportFileName] = useState('')
   const [isOpen, setIsOpen] = useState(false)
@@ -215,31 +221,90 @@ export function TaskListSelector({
     }
   }
 
-  const handleImportUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const getImportableBackupLists = async (file: File) => {
+    const raw = await file.text()
+    const parsed = JSON.parse(raw) as {
+      entries?: Record<string, string>
+    }
+    const entries = parsed?.entries
+
+    if (!entries || typeof entries !== 'object') {
+      throw new Error('Invalid backup file')
+    }
+
+    const lists: ImportableBackupList[] = []
+    const manifestRaw = entries['pomodoro-local-lists']
+    if (typeof manifestRaw === 'string') {
+      try {
+        const manifest = JSON.parse(manifestRaw) as Array<{ id?: string; name?: string }>
+        if (Array.isArray(manifest)) {
+          for (const list of manifest) {
+            if (list?.id && list?.name) {
+              lists.push({ id: list.id, name: list.name })
+            }
+          }
+        }
+      } catch {
+        // Ignore malformed list manifests and fall back to personal if possible.
+      }
+    }
+
+    if (typeof entries.personalTasks === 'string' && !lists.some((list) => list.id === 'personal')) {
+      lists.unshift({ id: 'personal', name: 'Personal' })
+    }
+
+    if (!lists.length) {
+      throw new Error('No importable lists were found in this backup')
+    }
+
+    return lists
+  }
+
+  const handleImportUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     e.target.value = ''
 
     if (file) {
-      setPendingImportFile(file)
-      setImportListName(`${currentTaskList?.name || 'Imported List'} (Imported)`)
-      setShowImportChoiceDialog(true)
-      setIsOpen(false)
+      try {
+        const lists = await getImportableBackupLists(file)
+        setPendingImportFile(file)
+        setImportableBackupLists(lists)
+        setShowImportChoiceDialog(true)
+        setIsOpen(false)
+      } catch (err: any) {
+        toast.error('Invalid backup file', {
+          description: err?.message || 'Please choose a valid backup JSON file.',
+        })
+      }
     }
   }
 
   const resetImportFlow = () => {
     setPendingImportFile(null)
     setShowImportChoiceDialog(false)
-    setShowImportNameDialog(false)
-    setImportListName('')
+    setShowImportListDialog(false)
+    setImportableBackupLists([])
   }
 
-  const handleImportOverwriteCurrent = () => {
+  const handleImportSingleList = () => {
     if (!pendingImportFile) {
       resetImportFlow()
       return
     }
-    onImportLocalData?.(pendingImportFile, { mode: 'overwrite-current' })
+    setShowImportChoiceDialog(false)
+    setShowImportListDialog(true)
+  }
+
+  const handleImportSelectedList = (sourceList: ImportableBackupList) => {
+    if (!pendingImportFile) {
+      resetImportFlow()
+      return
+    }
+
+    onImportLocalData?.(pendingImportFile, {
+      mode: 'overwrite-current',
+      sourceListId: sourceList.id,
+    })
     resetImportFlow()
   }
 
@@ -252,30 +317,6 @@ export function TaskListSelector({
   const handleRestoreAllMerge = () => {
     if (!pendingImportFile) { resetImportFlow(); return }
     onImportLocalData?.(pendingImportFile, { mode: 'restore-all-merge' })
-    resetImportFlow()
-  }
-
-  const handleImportIntoNewList = () => {
-    setShowImportChoiceDialog(false)
-    setShowImportNameDialog(true)
-  }
-
-  const confirmImportIntoNewList = () => {
-    if (!pendingImportFile) {
-      resetImportFlow()
-      return
-    }
-
-    const trimmedName = importListName.trim()
-    if (!trimmedName) {
-      toast.error('Please enter a list name')
-      return
-    }
-
-    onImportLocalData?.(pendingImportFile, {
-      mode: 'new-list',
-      newListName: trimmedName,
-    })
     resetImportFlow()
   }
 
@@ -690,17 +731,10 @@ export function TaskListSelector({
             </button>
             <button
               className="w-full text-left rounded-md border px-4 py-3 hover:bg-accent transition-colors"
-              onClick={handleImportIntoNewList}
+              onClick={handleImportSingleList}
             >
-              <div className="font-medium">Import as new list</div>
-              <div className="text-sm text-muted-foreground">Imports the first list from the backup as a new list.</div>
-            </button>
-            <button
-              className="w-full text-left rounded-md border border-destructive/40 px-4 py-3 hover:bg-destructive/10 transition-colors"
-              onClick={handleImportOverwriteCurrent}
-            >
-              <div className="font-medium text-destructive">Overwrite current list</div>
-              <div className="text-sm text-muted-foreground">Replaces tasks in your current list with tasks from the backup.</div>
+              <div className="font-medium">Import one list by name</div>
+              <div className="text-sm text-muted-foreground">Choose exactly one list from this backup to import into your current list.</div>
             </button>
           </div>
           <AlertDialogFooter>
@@ -710,29 +744,30 @@ export function TaskListSelector({
       </AlertDialog>
 
       <AlertDialog
-        open={showImportNameDialog}
-        onOpenChange={setShowImportNameDialog}
+        open={showImportListDialog}
+        onOpenChange={setShowImportListDialog}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Name new imported list</AlertDialogTitle>
+            <AlertDialogTitle>Choose a list to import</AlertDialogTitle>
             <AlertDialogDescription>
-              You can rename the imported list before it is created.
+              Select one list from this backup.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <div className="space-y-2">
-            <Input
-              value={importListName}
-              onChange={(e) => setImportListName(e.target.value)}
-              placeholder="Imported List"
-              autoFocus
-            />
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {importableBackupLists.map((list) => (
+              <button
+                key={list.id}
+                className="w-full text-left rounded-md border px-4 py-3 hover:bg-accent transition-colors"
+                onClick={() => handleImportSelectedList(list)}
+              >
+                <div className="font-medium">{list.name}</div>
+                <div className="text-sm text-muted-foreground">{list.id}</div>
+              </button>
+            ))}
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={resetImportFlow}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmImportIntoNewList}>
-              Continue import
-            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

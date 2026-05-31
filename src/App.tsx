@@ -97,6 +97,7 @@ type LocalStorageBackup = {
 type LocalStorageImportOptions = {
   mode: 'overwrite-current' | 'new-list' | 'restore-all-replace' | 'restore-all-merge'
   newListName?: string
+  sourceListId?: string
 }
 
 function isLocalStorageBackupKey(key: string) {
@@ -410,8 +411,10 @@ function App() {
       }
 
       const importedLists = parseImportedTaskLists(parsed.entries[LOCAL_LISTS_KEY])
-      const importedSourceList = importedLists[0]
-      const importedSourceListId = importedSourceList?.id || 'personal'
+      const importedSourceList =
+        importedLists.find((list) => list.id === options.sourceListId) || importedLists[0]
+      const importedSourceListId =
+        options.sourceListId || importedSourceList?.id || 'personal'
       const importedTasks = parseImportedTasks(
         parsed.entries[
           importedSourceListId === 'personal'
@@ -455,9 +458,12 @@ function App() {
 
       const currentListName =
         taskLists.find((list) => list.id === targetListId)?.name || 'current list'
+      const sourceListName =
+        importedLists.find((list) => list.id === importedSourceListId)?.name ||
+        (importedSourceListId === 'personal' ? 'Personal' : 'selected list')
 
       toast.success('Backup imported', {
-        description: `Overwrote "${currentListName}" with ${importedTasks.length} tasks. Reloading...`,
+        description: `Imported "${sourceListName}" into "${currentListName}" (${importedTasks.length} tasks). Reloading...`,
       })
 
       window.location.reload()
@@ -2255,16 +2261,7 @@ function App() {
                                 }
                                 onDelete={() => void deleteTask(task.id)}
                                 isActive={task.id === timerState.currentTaskId}
-                                onDragStart={() => handleDragStart(task.id)}
-                                onDragEnd={handleDragEnd}
-                                onDragOver={(e) => handleDragOver(e, task.id)}
-                                onDrop={() => handleDrop(task.id)}
-                                isDragging={draggedTaskId === task.id}
-                                isDragOver={dragOverTaskId === task.id}
                                 onSelect={() => selectTask(task.id)}
-                                onTouchReorder={(direction) =>
-                                  handleTouchReorder(task.id, direction)
-                                }
                                 onMoveUp={() => handleTouchReorder(task.id, 'up')}
                                 onMoveDown={() => handleTouchReorder(task.id, 'down')}
                                 canMoveUp={incompleteTasks.findIndex((t) => t.id === task.id) > 0}
@@ -2337,20 +2334,7 @@ function App() {
                                       isActive={
                                         task.id === timerState.currentTaskId
                                       }
-                                      onDragStart={() =>
-                                        handleDragStart(task.id)
-                                      }
-                                      onDragEnd={handleDragEnd}
-                                      onDragOver={(e) =>
-                                        handleDragOver(e, task.id)
-                                      }
-                                      onDrop={() => handleDrop(task.id)}
-                                      isDragging={draggedTaskId === task.id}
-                                      isDragOver={dragOverTaskId === task.id}
                                       onSelect={() => selectTask(task.id)}
-                                      onTouchReorder={(direction) =>
-                                        handleTouchReorder(task.id, direction)
-                                      }
                                       onMoveUp={() => handleTouchReorder(task.id, 'up')}
                                       onMoveDown={() => handleTouchReorder(task.id, 'down')}
                                       canMoveUp={completedTasks.findIndex((t) => t.id === task.id) > 0}
