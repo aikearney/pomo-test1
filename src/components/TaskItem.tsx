@@ -31,7 +31,14 @@ interface TaskItemProps {
   onUpdate: (task: Task) => void
   onDelete: () => void
   isActive: boolean
+  onDragStart?: () => void
+  onDragEnd?: () => void
+  onDragOver?: (e: React.DragEvent<HTMLDivElement>) => void
+  onDrop?: () => void
+  isDragging?: boolean
+  isDragOver?: boolean
   onSelect?: () => void
+  onTouchReorder?: (direction: 'up' | 'down') => void
   onMoveUp?: () => void
   onMoveDown?: () => void
   canMoveUp?: boolean
@@ -310,7 +317,14 @@ export function TaskItem({
   onUpdate, 
   onDelete, 
   isActive,
+  onDragStart,
+  onDragEnd,
+  onDragOver,
+  onDrop,
+  isDragging = false,
+  isDragOver = false,
   onSelect,
+  onTouchReorder,
   onMoveUp,
   onMoveDown,
   canMoveUp = false,
@@ -331,7 +345,7 @@ export function TaskItem({
   const resizeTextarea = (element: HTMLTextAreaElement | null) => {
     if (!element) return
     element.style.height = 'auto'
-    element.style.height = `${Math.min(element.scrollHeight, 144)}px`
+    element.style.height = `${Math.min(element.scrollHeight, 192)}px`
   }
 
   useEffect(() => {
@@ -515,13 +529,53 @@ export function TaskItem({
     onUpdate({ ...task, recurrence })
   }
 
+  const handleMoveUp = (e?: React.MouseEvent) => {
+    e?.stopPropagation()
+    if (onMoveUp) {
+      onMoveUp()
+      return
+    }
+    onTouchReorder?.('up')
+  }
+
+  const handleMoveDown = (e?: React.MouseEvent) => {
+    e?.stopPropagation()
+    if (onMoveDown) {
+      onMoveDown()
+      return
+    }
+    onTouchReorder?.('down')
+  }
+
+  const canMoveUpAction = canMoveUp || Boolean(onTouchReorder)
+  const canMoveDownAction = canMoveDown || Boolean(onTouchReorder)
+  const incompleteSubtasks = task.subtasks.filter(subtask => !subtask.completed)
+  const completedSubtasks = task.subtasks.filter(subtask => subtask.completed)
+
   return (
     <div
+      draggable={Boolean(onDragStart || onDrop)}
+      onDragStart={(e) => {
+        e.stopPropagation()
+        onDragStart?.()
+      }}
+      onDragEnd={(e) => {
+        e.stopPropagation()
+        onDragEnd?.()
+      }}
+      onDragOver={(e) => onDragOver?.(e)}
+      onDrop={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        onDrop?.()
+      }}
       className={cn(
         'border rounded-lg p-2.5 sm:p-3 transition-all relative',
         isActive ? 'border-accent bg-accent/5 ring-2 ring-accent/20' : 'border-border bg-card',
         task.completed && 'opacity-60',
-        task.isHighPriority && !task.completed && 'border-primary bg-primary/5'
+        task.isHighPriority && !task.completed && 'border-primary bg-primary/5',
+        isDragging && 'opacity-50',
+        isDragOver && 'ring-2 ring-primary/30'
       )}
     >
       <div className="flex items-start gap-2">
@@ -623,7 +677,10 @@ export function TaskItem({
 
           {!task.collapsed && task.subtasks.length > 0 && (
             <div className="mt-2 ml-2 sm:ml-4 min-w-0 max-w-full space-y-1 overflow-hidden">
-              {task.subtasks.map((subtask, index) => (
+              {incompleteSubtasks.map((subtask) => {
+                const subtaskIndex = task.subtasks.findIndex(st => st.id === subtask.id)
+
+                return (
                 <SubtaskItem
                   key={subtask.id}
                   subtask={subtask}
@@ -633,12 +690,13 @@ export function TaskItem({
                   onAddNew={() => setIsAddingSubtask(true)}
                   onMoveUp={() => moveSubtask(subtask.id, 'up')}
                   onMoveDown={() => moveSubtask(subtask.id, 'down')}
-                  canMoveUp={index > 0}
-                  canMoveDown={index < task.subtasks.length - 1}
+                  canMoveUp={subtaskIndex > 0}
+                  canMoveDown={subtaskIndex < task.subtasks.length - 1}
                   onMoveToTask={() => setSubtaskToMove(subtask.id)}
                   canMoveToAnotherTask={true}
                 />
-              ))}
+                )
+              })}
             </div>
           )}
 
@@ -648,6 +706,7 @@ export function TaskItem({
                 ref={subtaskInputRef}
                 id="subtask-name"
                 placeholder="Subtask name"
+                rows={2}
                 value={subtaskName}
                 onChange={(e) => setSubtaskName(e.target.value)}
                 onKeyDown={(e) => {
@@ -661,7 +720,7 @@ export function TaskItem({
                     setIsAddingSubtask(false)
                   }
                 }}
-                className="min-h-[2rem] max-h-36 resize-none overflow-y-auto text-xs leading-tight flex-1 min-w-0"
+                className="min-h-[2.5rem] max-h-48 resize-none overflow-y-auto text-sm leading-snug flex-1 min-w-0"
                 autoFocus
               />
               <Input
@@ -703,6 +762,31 @@ export function TaskItem({
               Add Subtask
             </Button>
           )}
+
+          {!task.collapsed && completedSubtasks.length > 0 && (
+            <div className="mt-2 ml-2 sm:ml-4 min-w-0 max-w-full space-y-1 overflow-hidden">
+              {completedSubtasks.map((subtask) => {
+                const subtaskIndex = task.subtasks.findIndex(st => st.id === subtask.id)
+
+                return (
+                <SubtaskItem
+                  key={subtask.id}
+                  subtask={subtask}
+                  onUpdate={(updatedSubtask) => updateSubtask(subtask.id, updatedSubtask)}
+                  onToggleComplete={() => toggleSubtaskComplete(subtask.id)}
+                  onDelete={() => deleteSubtask(subtask.id)}
+                  onAddNew={() => setIsAddingSubtask(true)}
+                  onMoveUp={() => moveSubtask(subtask.id, 'up')}
+                  onMoveDown={() => moveSubtask(subtask.id, 'down')}
+                  canMoveUp={subtaskIndex > 0}
+                  canMoveDown={subtaskIndex < task.subtasks.length - 1}
+                  onMoveToTask={() => setSubtaskToMove(subtask.id)}
+                  canMoveToAnotherTask={true}
+                />
+                )
+              })}
+            </div>
+          )}
         </div>
 
         {!isEditing && (
@@ -711,12 +795,9 @@ export function TaskItem({
             <Button
               variant="ghost"
               size="icon"
-              onClick={(e) => {
-                e.stopPropagation()
-                onMoveUp?.()
-              }}
+              onClick={handleMoveUp}
               className="h-8 w-8"
-              disabled={!canMoveUp}
+              disabled={!canMoveUpAction}
               title="Move task up"
             >
               <CaretUp size={16} />
@@ -724,12 +805,9 @@ export function TaskItem({
             <Button
               variant="ghost"
               size="icon"
-              onClick={(e) => {
-                e.stopPropagation()
-                onMoveDown?.()
-              }}
+              onClick={handleMoveDown}
               className="h-8 w-8"
-              disabled={!canMoveDown}
+              disabled={!canMoveDownAction}
               title="Move task down"
             >
               <CaretDown size={16} />
@@ -766,20 +844,14 @@ export function TaskItem({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onMoveUp?.()
-                  }}
-                  disabled={!canMoveUp}
+                  onClick={handleMoveUp}
+                  disabled={!canMoveUpAction}
                 >
                   Move up
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onMoveDown?.()
-                  }}
-                  disabled={!canMoveDown}
+                  onClick={handleMoveDown}
+                  disabled={!canMoveDownAction}
                 >
                   Move down
                 </DropdownMenuItem>

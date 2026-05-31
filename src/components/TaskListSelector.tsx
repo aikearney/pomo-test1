@@ -436,7 +436,7 @@ export function TaskListSelector({
             </DropdownMenuItem>
           ))}
           <DropdownMenuSeparator />
-          {isAnonymousMode && (onExportLocalData || onImportLocalData) && (
+          {(onExportLocalData || onImportLocalData) && (
             <>
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger>

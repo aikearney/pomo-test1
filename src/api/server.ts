@@ -213,17 +213,36 @@ app.post("/api/lists/:id/tasks", asyncHandler(async (req, res) => {
     return;
   }
 
+  const body = req.body ?? {};
+  const taskIterations = Number(body.iterations);
+  const completedIterations = Number(body.completedIterations);
+  const subtasks = Array.isArray(body.subtasks)
+    ? body.subtasks.map((subtask: any) => ({
+        ...subtask,
+        iterations: Number.isFinite(Number(subtask?.iterations)) && Number(subtask?.iterations) > 0
+          ? Math.round(Number(subtask?.iterations))
+          : 1,
+        completed: Boolean(subtask?.completed),
+      }))
+    : [];
+
   const newTask = {
     id: uuid(),
     userId: userId as string,
     userid: userId as string,
     listId,
-    name: req.body.name,
-    iterations: req.body.iterations ?? 1,
-    subtasks: req.body.subtasks ?? [],
-    completed: false,
-    collapsed: false,
-    isHighPriority: req.body.isHighPriority ?? false,
+    name: body.name,
+    iterations: Number.isFinite(taskIterations) && taskIterations > 0
+      ? Math.round(taskIterations)
+      : 1,
+    subtasks,
+    completed: Boolean(body.completed),
+    completedIterations: Number.isFinite(completedIterations) && completedIterations >= 0
+      ? Math.round(completedIterations)
+      : 0,
+    collapsed: Boolean(body.collapsed),
+    isHighPriority: body.isHighPriority ?? false,
+    recurrence: body.recurrence ?? undefined,
     createdAt: Date.now(),
   };
 
