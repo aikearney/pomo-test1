@@ -297,6 +297,7 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [authDisplayName, setAuthDisplayName] = useState<string | null>(null)
   const [showLoginOverlay, setShowLoginOverlay] = useState(false)
+  const lastBackupFileHandleRef = useRef<any | null>(null)
 
   const AUTH_PROVIDER = (import.meta.env.VITE_AUTH_PROVIDER || 'aad').trim()
   const LOGIN_PROVIDERS = ['google', 'facebook'] as const
@@ -341,16 +342,83 @@ function App() {
     const blob = new Blob([JSON.stringify(backup, null, 2)], {
       type: 'application/json',
     })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `${safeName}.json`
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
-    URL.revokeObjectURL(url)
 
-    toast.success('Backup exported', { description: `Saved as ${safeName}.json` })
+    const writeToFileHandle = async (handle: any) => {
+      const writable = await handle.createWritable()
+      await writable.write(blob)
+      await writable.close()
+    }
+
+    const saveWithFileSystemAccess = async () => {
+      const picker = (
+        window as Window & {
+          showSaveFilePicker?: (options?: any) => Promise<any>
+        }
+      ).showSaveFilePicker
+
+      if (!picker) return false
+
+      try {
+        const existingHandle = lastBackupFileHandleRef.current
+        if (existingHandle) {
+          let permission = 'granted'
+          if (typeof existingHandle.queryPermission === 'function') {
+            permission = await existingHandle.queryPermission({ mode: 'readwrite' })
+          }
+          if (
+            permission !== 'granted' &&
+            typeof existingHandle.requestPermission === 'function'
+          ) {
+            permission = await existingHandle.requestPermission({ mode: 'readwrite' })
+          }
+
+          if (permission === 'granted') {
+            await writeToFileHandle(existingHandle)
+            const fileName = existingHandle.name || `${safeName}.json`
+            toast.success('Backup updated', {
+              description: `Updated ${fileName}`,
+            })
+            return true
+          }
+        }
+
+        const handle = await picker({
+          suggestedName: `${safeName}.json`,
+          types: [
+            {
+              description: 'JSON backup',
+              accept: {
+                'application/json': ['.json'],
+              },
+            },
+          ],
+        })
+
+        await writeToFileHandle(handle)
+        lastBackupFileHandleRef.current = handle
+        const fileName = handle.name || `${safeName}.json`
+        toast.success('Backup exported', { description: `Saved as ${fileName}` })
+        return true
+      } catch (err: any) {
+        if (err?.name === 'AbortError') return true
+        return false
+      }
+    }
+
+    void saveWithFileSystemAccess().then((savedWithFsApi) => {
+      if (savedWithFsApi) return
+
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `${safeName}.json`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+
+      toast.success('Backup exported', { description: `Saved as ${safeName}.json` })
+    })
   }
 
   const importLocalBackup = async (
