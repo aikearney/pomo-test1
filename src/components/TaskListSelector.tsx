@@ -28,8 +28,14 @@ import { CaretDown, Plus, Trash, PencilSimple, Check, X, Copy, ChartBar, Image, 
 import { toast } from 'sonner'
 
 type ImportLocalDataOptions = {
-  mode: 'overwrite-current' | 'new-list'
+  mode: 'overwrite-current' | 'new-list' | 'restore-all-replace' | 'restore-all-merge'
   newListName?: string
+  sourceListId?: string
+}
+
+type ImportableBackupList = {
+  id: string
+  name: string
 }
 
 interface TaskListSelectorProps {
@@ -46,7 +52,7 @@ interface TaskListSelectorProps {
   onBackgroundChange: (background: string | null) => void
   onOpacityChange: (opacity: number) => void
   onUpload: (file: File) => void
-  onExportLocalData?: () => void
+  onExportLocalData?: (filename: string) => void
   onImportLocalData?: (file: File, options: ImportLocalDataOptions) => void
   isAnonymousMode?: boolean
   isAuthenticated?: boolean
@@ -151,8 +157,10 @@ export function TaskListSelector({
   const [deleteConfirmListId, setDeleteConfirmListId] = useState<string | null>(null)
   const [pendingImportFile, setPendingImportFile] = useState<File | null>(null)
   const [showImportChoiceDialog, setShowImportChoiceDialog] = useState(false)
-  const [showImportNameDialog, setShowImportNameDialog] = useState(false)
-  const [importListName, setImportListName] = useState('')
+  const [showImportListDialog, setShowImportListDialog] = useState(false)
+  const [importableBackupLists, setImportableBackupLists] = useState<ImportableBackupList[]>([])
+  const [showExportNameDialog, setShowExportNameDialog] = useState(false)
+  const [exportFileName, setExportFileName] = useState('')
   const [isOpen, setIsOpen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const editInputRef = useRef<HTMLInputElement>(null)
@@ -213,55 +221,102 @@ export function TaskListSelector({
     }
   }
 
-  const handleImportUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const getImportableBackupLists = async (file: File) => {
+    const raw = await file.text()
+    const parsed = JSON.parse(raw) as {
+      entries?: Record<string, string>
+    }
+    const entries = parsed?.entries
+
+    if (!entries || typeof entries !== 'object') {
+      throw new Error('Invalid backup file')
+    }
+
+    const lists: ImportableBackupList[] = []
+    const manifestRaw = entries['pomodoro-local-lists']
+    if (typeof manifestRaw === 'string') {
+      try {
+        const manifest = JSON.parse(manifestRaw) as Array<{ id?: string; name?: string }>
+        if (Array.isArray(manifest)) {
+          for (const list of manifest) {
+            if (list?.id && list?.name) {
+              lists.push({ id: list.id, name: list.name })
+            }
+          }
+        }
+      } catch {
+        // Ignore malformed list manifests and fall back to personal if possible.
+      }
+    }
+
+    if (typeof entries.personalTasks === 'string' && !lists.some((list) => list.id === 'personal')) {
+      lists.unshift({ id: 'personal', name: 'Personal' })
+    }
+
+    if (!lists.length) {
+      throw new Error('No importable lists were found in this backup')
+    }
+
+    return lists
+  }
+
+  const handleImportUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     e.target.value = ''
 
     if (file) {
-      setPendingImportFile(file)
-      setImportListName(`${currentTaskList?.name || 'Imported List'} (Imported)`)
-      setShowImportChoiceDialog(true)
-      setIsOpen(false)
+      try {
+        const lists = await getImportableBackupLists(file)
+        setPendingImportFile(file)
+        setImportableBackupLists(lists)
+        setShowImportChoiceDialog(true)
+        setIsOpen(false)
+      } catch (err: any) {
+        toast.error('Invalid backup file', {
+          description: err?.message || 'Please choose a valid backup JSON file.',
+        })
+      }
     }
   }
 
   const resetImportFlow = () => {
     setPendingImportFile(null)
     setShowImportChoiceDialog(false)
-    setShowImportNameDialog(false)
-    setImportListName('')
+    setShowImportListDialog(false)
+    setImportableBackupLists([])
   }
 
-  const handleImportOverwriteCurrent = () => {
+  const handleImportSingleList = () => {
     if (!pendingImportFile) {
       resetImportFlow()
       return
     }
-    onImportLocalData?.(pendingImportFile, { mode: 'overwrite-current' })
-    resetImportFlow()
-  }
-
-  const handleImportIntoNewList = () => {
     setShowImportChoiceDialog(false)
-    setShowImportNameDialog(true)
+    setShowImportListDialog(true)
   }
 
-  const confirmImportIntoNewList = () => {
+  const handleImportSelectedList = (sourceList: ImportableBackupList) => {
     if (!pendingImportFile) {
       resetImportFlow()
-      return
-    }
-
-    const trimmedName = importListName.trim()
-    if (!trimmedName) {
-      toast.error('Please enter a list name')
       return
     }
 
     onImportLocalData?.(pendingImportFile, {
-      mode: 'new-list',
-      newListName: trimmedName,
+      mode: 'overwrite-current',
+      sourceListId: sourceList.id,
     })
+    resetImportFlow()
+  }
+
+  const handleRestoreAllReplace = () => {
+    if (!pendingImportFile) { resetImportFlow(); return }
+    onImportLocalData?.(pendingImportFile, { mode: 'restore-all-replace' })
+    resetImportFlow()
+  }
+
+  const handleRestoreAllMerge = () => {
+    if (!pendingImportFile) { resetImportFlow(); return }
+    onImportLocalData?.(pendingImportFile, { mode: 'restore-all-merge' })
     resetImportFlow()
   }
 
@@ -392,7 +447,9 @@ export function TaskListSelector({
                   {onExportLocalData && (
                     <DropdownMenuItem
                       onClick={() => {
-                        onExportLocalData()
+                        const today = new Date().toISOString().split('T')[0]
+                        setExportFileName(`pomodoro-backup-${today}`)
+                        setShowExportNameDialog(true)
                         setIsOpen(false)
                       }}
                     >
@@ -579,6 +636,58 @@ export function TaskListSelector({
         </DropdownMenuContent>
       </DropdownMenu>
 
+      <AlertDialog
+        open={showExportNameDialog}
+        onOpenChange={(open) => {
+          if (!open) {
+            setShowExportNameDialog(false)
+            setExportFileName('')
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Name your backup file</AlertDialogTitle>
+            <AlertDialogDescription>
+              Choose a filename for the backup. A <code>.json</code> extension will be added automatically.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2">
+            <Input
+              value={exportFileName}
+              onChange={(e) => setExportFileName(e.target.value)}
+              placeholder="pomodoro-backup"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  const name = exportFileName.trim()
+                  if (name) {
+                    setShowExportNameDialog(false)
+                    onExportLocalData?.(name)
+                  }
+                }
+              }}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => { setShowExportNameDialog(false); setExportFileName('') }}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const name = exportFileName.trim()
+                if (!name) {
+                  toast.error('Please enter a filename')
+                  return
+                }
+                setShowExportNameDialog(false)
+                onExportLocalData?.(name)
+              }}
+            >
+              Save backup
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <AlertDialog open={deleteConfirmListId !== null} onOpenChange={(open) => !open && setDeleteConfirmListId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -603,52 +712,62 @@ export function TaskListSelector({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Import local backup</AlertDialogTitle>
-            <AlertDialogDescription>
-              Importing can replace tasks in your current list. Do you want to overwrite the current list or import into a new list?
-            </AlertDialogDescription>
+            <AlertDialogDescription>How would you like to import this backup?</AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="space-y-2 py-2">
+            <button
+              className="w-full text-left rounded-md border px-4 py-3 hover:bg-accent transition-colors"
+              onClick={handleRestoreAllMerge}
+            >
+              <div className="font-medium">Merge with existing lists</div>
+              <div className="text-sm text-muted-foreground">Adds lists from the backup. Lists you already have are kept as-is.</div>
+            </button>
+            <button
+              className="w-full text-left rounded-md border px-4 py-3 hover:bg-accent transition-colors"
+              onClick={handleRestoreAllReplace}
+            >
+              <div className="font-medium">Replace all lists</div>
+              <div className="text-sm text-muted-foreground">Removes your current lists and restores everything from the backup.</div>
+            </button>
+            <button
+              className="w-full text-left rounded-md border px-4 py-3 hover:bg-accent transition-colors"
+              onClick={handleImportSingleList}
+            >
+              <div className="font-medium">Import one list by name</div>
+              <div className="text-sm text-muted-foreground">Choose exactly one list from this backup to import into your current list.</div>
+            </button>
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={resetImportFlow}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-secondary text-secondary-foreground hover:bg-secondary/90"
-              onClick={handleImportIntoNewList}
-            >
-              Import to new list
-            </AlertDialogAction>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={handleImportOverwriteCurrent}
-            >
-              Overwrite current list
-            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
       <AlertDialog
-        open={showImportNameDialog}
-        onOpenChange={setShowImportNameDialog}
+        open={showImportListDialog}
+        onOpenChange={setShowImportListDialog}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Name new imported list</AlertDialogTitle>
+            <AlertDialogTitle>Choose a list to import</AlertDialogTitle>
             <AlertDialogDescription>
-              You can rename the imported list before it is created.
+              Select one list from this backup.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <div className="space-y-2">
-            <Input
-              value={importListName}
-              onChange={(e) => setImportListName(e.target.value)}
-              placeholder="Imported List"
-              autoFocus
-            />
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {importableBackupLists.map((list) => (
+              <button
+                key={list.id}
+                className="w-full text-left rounded-md border px-4 py-3 hover:bg-accent transition-colors"
+                onClick={() => handleImportSelectedList(list)}
+              >
+                <div className="font-medium">{list.name}</div>
+                <div className="text-sm text-muted-foreground">{list.id}</div>
+              </button>
+            ))}
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={resetImportFlow}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmImportIntoNewList}>
-              Continue import
-            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

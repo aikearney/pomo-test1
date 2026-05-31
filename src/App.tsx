@@ -95,8 +95,9 @@ type LocalStorageBackup = {
 }
 
 type LocalStorageImportOptions = {
-  mode: 'overwrite-current' | 'new-list'
+  mode: 'overwrite-current' | 'new-list' | 'restore-all-replace' | 'restore-all-merge'
   newListName?: string
+  sourceListId?: string
 }
 
 function isLocalStorageBackupKey(key: string) {
@@ -328,7 +329,7 @@ function App() {
     localStorage.setItem(getLocalTasksStorageKey(listId), JSON.stringify(nextTasks))
   }
 
-  const exportLocalBackup = () => {
+  const exportLocalBackup = (filename: string) => {
     const entries = readLocalStorageBackupEntries()
     const backup: LocalStorageBackup = {
       version: LOCAL_STORAGE_BACKUP_VERSION,
@@ -336,19 +337,20 @@ function App() {
       entries,
     }
 
+    const safeName = filename.replace(/\.json$/i, '').trim() || 'pomodoro-backup'
     const blob = new Blob([JSON.stringify(backup, null, 2)], {
       type: 'application/json',
     })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `pomodoro-local-backup-${formatBackupTimestamp(new Date())}.json`
+    link.download = `${safeName}.json`
     document.body.appendChild(link)
     link.click()
     link.remove()
     URL.revokeObjectURL(url)
 
-    toast.success('Backup exported')
+    toast.success('Backup exported', { description: `Saved as ${safeName}.json` })
   }
 
   const importLocalBackup = async (
@@ -363,9 +365,56 @@ function App() {
         throw new Error('Invalid backup file')
       }
 
+      if (options.mode === 'restore-all-replace') {
+        const keysToRemove: string[] = []
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i)
+          if (key && isLocalStorageBackupKey(key)) keysToRemove.push(key)
+        }
+        keysToRemove.forEach((k) => localStorage.removeItem(k))
+        for (const [key, value] of Object.entries(parsed.entries)) {
+          localStorage.setItem(key, value)
+        }
+        const listManifest = parseImportedTaskLists(parsed.entries[LOCAL_LISTS_KEY])
+        const listCount = listManifest.length || 1
+        toast.success('All lists replaced', {
+          description: `Restored ${listCount} list${listCount !== 1 ? 's' : ''} from backup. Reloading...`,
+        })
+        window.location.reload()
+        return
+      }
+
+      if (options.mode === 'restore-all-merge') {
+        const backupLists = parseImportedTaskLists(parsed.entries[LOCAL_LISTS_KEY])
+        const existingLists = readLocalLists()
+        const existingIds = new Set(existingLists.map((l) => l.id))
+        const newLists = backupLists.filter((l) => !existingIds.has(l.id))
+        for (const list of newLists) {
+          const tasksKey =
+            list.id === 'personal' ? 'personalTasks' : `pomodoro-local-tasks:${list.id}`
+          const backupTasksRaw = parsed.entries[tasksKey]
+          if (backupTasksRaw !== undefined) localStorage.setItem(tasksKey, backupTasksRaw)
+        }
+        if (!existingIds.has('personal') && parsed.entries.personalTasks !== undefined) {
+          localStorage.setItem('personalTasks', parsed.entries.personalTasks)
+        }
+        writeLocalLists([...existingLists, ...newLists])
+        const added = newLists.length
+        const skipped = backupLists.length - added
+        const parts = [
+          added > 0 ? `Added ${added} new list${added !== 1 ? 's' : ''}` : null,
+          skipped > 0 ? `${skipped} already present — kept unchanged` : null,
+        ].filter(Boolean).join('. ')
+        toast.success('Lists merged', { description: parts + '. Reloading...' })
+        window.location.reload()
+        return
+      }
+
       const importedLists = parseImportedTaskLists(parsed.entries[LOCAL_LISTS_KEY])
-      const importedSourceList = importedLists[0]
-      const importedSourceListId = importedSourceList?.id || 'personal'
+      const importedSourceList =
+        importedLists.find((list) => list.id === options.sourceListId) || importedLists[0]
+      const importedSourceListId =
+        options.sourceListId || importedSourceList?.id || 'personal'
       const importedTasks = parseImportedTasks(
         parsed.entries[
           importedSourceListId === 'personal'
@@ -409,9 +458,12 @@ function App() {
 
       const currentListName =
         taskLists.find((list) => list.id === targetListId)?.name || 'current list'
+      const sourceListName =
+        importedLists.find((list) => list.id === importedSourceListId)?.name ||
+        (importedSourceListId === 'personal' ? 'Personal' : 'selected list')
 
       toast.success('Backup imported', {
-        description: `Overwrote "${currentListName}" with ${importedTasks.length} tasks. Reloading...`,
+        description: `Imported "${sourceListName}" into "${currentListName}" (${importedTasks.length} tasks). Reloading...`,
       })
 
       window.location.reload()
@@ -530,9 +582,16 @@ function App() {
         setCurrentTaskListId(exists ? savedListId : lists[0].id)
       } catch (err: any) {
         console.error('Error loading lists', err)
-        toast.error('Failed to load lists', {
-          description: err?.message || 'Please try again.',
-        })
+        if (cancelled) return
+        // API unavailable or unauthenticated locally — fall back to anonymous mode
+        setIsAnonymousMode(true)
+        const localLists = readLocalLists()
+        const personalList: TaskList = { id: 'personal', name: 'Personal', createdAt: 0 }
+        const mergedLists = [personalList, ...localLists]
+        setTaskLists(mergedLists)
+        const savedListId = localStorage.getItem('pomodoro-current-list-id') || null
+        const exists = mergedLists.some((l) => l.id === savedListId)
+        setCurrentTaskListId(exists ? savedListId : mergedLists[0].id)
       } finally {
         if (!cancelled) setIsLoadingLists(false)
       }
@@ -2202,16 +2261,7 @@ function App() {
                                 }
                                 onDelete={() => void deleteTask(task.id)}
                                 isActive={task.id === timerState.currentTaskId}
-                                onDragStart={() => handleDragStart(task.id)}
-                                onDragEnd={handleDragEnd}
-                                onDragOver={(e) => handleDragOver(e, task.id)}
-                                onDrop={() => handleDrop(task.id)}
-                                isDragging={draggedTaskId === task.id}
-                                isDragOver={dragOverTaskId === task.id}
                                 onSelect={() => selectTask(task.id)}
-                                onTouchReorder={(direction) =>
-                                  handleTouchReorder(task.id, direction)
-                                }
                                 onMoveUp={() => handleTouchReorder(task.id, 'up')}
                                 onMoveDown={() => handleTouchReorder(task.id, 'down')}
                                 canMoveUp={incompleteTasks.findIndex((t) => t.id === task.id) > 0}
@@ -2284,20 +2334,7 @@ function App() {
                                       isActive={
                                         task.id === timerState.currentTaskId
                                       }
-                                      onDragStart={() =>
-                                        handleDragStart(task.id)
-                                      }
-                                      onDragEnd={handleDragEnd}
-                                      onDragOver={(e) =>
-                                        handleDragOver(e, task.id)
-                                      }
-                                      onDrop={() => handleDrop(task.id)}
-                                      isDragging={draggedTaskId === task.id}
-                                      isDragOver={dragOverTaskId === task.id}
                                       onSelect={() => selectTask(task.id)}
-                                      onTouchReorder={(direction) =>
-                                        handleTouchReorder(task.id, direction)
-                                      }
                                       onMoveUp={() => handleTouchReorder(task.id, 'up')}
                                       onMoveDown={() => handleTouchReorder(task.id, 'down')}
                                       canMoveUp={completedTasks.findIndex((t) => t.id === task.id) > 0}
