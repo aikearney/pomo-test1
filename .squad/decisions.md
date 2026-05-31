@@ -2,13 +2,6 @@
 
 ## Active Decisions
 
-### 2026-05-31: Anonymous-mode local storage backup and restore
-- **By:** Dallas (Frontend Dev)
-- **Decision:** Expose export/import for anonymous-mode localStorage-backed app data from the existing task list dropdown.
-- **Scope:** Frontend-only; backup includes `pomodoro-*` keys and `personalTasks`, import replaces matching local app keys and rehydrates UI by reloading the app.
-- **Rationale:** Gives local users a simple backup/restore path without affecting authenticated cloud mode.
-- **Source:** `.squad/decisions/inbox/dallas-local-storage-backup.md`
-
 ### 2026-05-29: Azure secrets and deployment assumptions
 - **By:** aisling (via Copilot)
 - **Decision:** Treat API/Cosmos settings as potentially incomplete; reuse existing App Service Plan and running Cosmos SQL DB; handle Azure login in workflow; store non-login secrets/keys in Azure Key Vault.
