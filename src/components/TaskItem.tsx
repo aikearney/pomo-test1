@@ -1,8 +1,9 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Task, Subtask, RecurrenceSettings } from '@/lib/types'
 import { calculateTaskIterations, formatTimeDisplay, calculateTotalTime, formatRecurrenceDescription, getTimeUntilReactivation } from '@/lib/timer-utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -12,6 +13,15 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { CaretDown, CaretRight, Plus, Trash, PlayCircle, CaretUp, Star, ArrowClockwise, DotsThree } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
 import { RecurrenceDialog } from '@/components/RecurrenceDialog'
@@ -26,6 +36,8 @@ interface TaskItemProps {
   onMoveDown?: () => void
   canMoveUp?: boolean
   canMoveDown?: boolean
+  otherTasks?: Task[]
+  onMoveSubtaskToTask?: (subtaskId: string, targetTaskId: string) => void
 }
 
 interface SubtaskItemProps {
@@ -38,6 +50,8 @@ interface SubtaskItemProps {
   onMoveDown?: () => void
   canMoveUp?: boolean
   canMoveDown?: boolean
+  onMoveToTask?: () => void
+  canMoveToAnotherTask?: boolean
 }
 
 function SubtaskItem({
@@ -49,11 +63,53 @@ function SubtaskItem({
   onMoveUp,
   onMoveDown,
   canMoveUp = false,
-  canMoveDown = false
+  canMoveDown = false,
+  onMoveToTask,
+  canMoveToAnotherTask = false
 }: SubtaskItemProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [editName, setEditName] = useState(subtask.name)
   const [editIterations, setEditIterations] = useState(subtask.iterations.toString())
+  const rowRef = useRef<HTMLDivElement>(null)
+  const editNameRef = useRef<HTMLTextAreaElement>(null)
+  const [rowWidth, setRowWidth] = useState(0)
+
+  const resizeTextarea = (element: HTMLTextAreaElement | null) => {
+    if (!element) return
+    element.style.height = 'auto'
+    element.style.height = `${Math.min(element.scrollHeight, 144)}px`
+  }
+
+  useEffect(() => {
+    if (!rowRef.current) return
+
+    const element = rowRef.current
+    const observer = new ResizeObserver((entries) => {
+      const nextWidth = entries[0]?.contentRect.width ?? 0
+      setRowWidth(nextWidth)
+    })
+
+    observer.observe(element)
+    setRowWidth(element.getBoundingClientRect().width)
+
+    return () => {
+      observer.disconnect()
+    }
+  }, [])
+
+  useEffect(() => {
+    resizeTextarea(editNameRef.current)
+  }, [editName, isEditing])
+
+  const layoutMode = rowWidth >= 440 ? 'comfortable' : rowWidth >= 360 ? 'compact' : rowWidth >= 300 ? 'tight' : 'ultra'
+  const showInlineMoveButtons = layoutMode === 'comfortable'
+  const showIterationsBadge = layoutMode === 'comfortable' || layoutMode === 'compact'
+  const controlButtonClass =
+    layoutMode === 'comfortable' ? 'h-7 w-7' : layoutMode === 'compact' ? 'h-6 w-6' : 'h-5 w-5'
+  const controlIconSize = layoutMode === 'comfortable' ? 14 : layoutMode === 'compact' ? 12 : 11
+  const rowGapClass = layoutMode === 'comfortable' ? 'gap-2' : 'gap-1.5'
+  const controlGapClass = layoutMode === 'comfortable' ? 'gap-1' : 'gap-0.5'
+  const gridGapClass = layoutMode === 'comfortable' ? 'gap-1' : 'gap-0.5'
 
   const startEditing = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -106,27 +162,36 @@ function SubtaskItem({
 
   return (
     <div
+      ref={rowRef}
       className={cn(
-        'flex items-start sm:items-center gap-2 text-sm p-1.5 rounded transition-all'
+        'flex w-full max-w-full min-w-0 items-start sm:items-center overflow-hidden text-sm p-1.5 rounded transition-all',
+        rowGapClass
       )}
     >
       <Checkbox
         checked={subtask.completed}
         onCheckedChange={onToggleComplete}
-        className="h-4 w-4 mt-0.5 sm:mt-0"
+        className="h-4 w-4 mt-0.5 sm:mt-0 shrink-0"
       />
       
       {isEditing ? (
-        <div className="flex items-center gap-2 flex-1 subtask-edit-container">
-          <Input
+        <div className="flex flex-1 min-w-0 items-start gap-2 overflow-hidden subtask-edit-container">
+          <Textarea
+            ref={editNameRef}
             value={editName}
             onChange={(e) => setEditName(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') saveEditing(true)
-              if (e.key === 'Escape') cancelEditing()
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                saveEditing(true)
+              }
+              if (e.key === 'Escape') {
+                e.preventDefault()
+                cancelEditing()
+              }
             }}
             onBlur={handleBlur}
-            className="h-10 text-base flex-1 min-w-0"
+            className="min-h-[2.5rem] max-h-36 resize-none overflow-y-auto text-base leading-tight flex-1 min-w-0"
             placeholder="Subtask name"
             autoFocus
           />
@@ -140,78 +205,101 @@ function SubtaskItem({
               if (e.key === 'Escape') cancelEditing()
             }}
             onBlur={handleBlur}
-            className="h-10 w-14 sm:w-20 text-base"
+            className="h-10 w-14 sm:w-20 text-base shrink-0"
             placeholder="Iter"
           />
         </div>
       ) : (
-        <>
-          <span
-            onClick={startEditing}
-            className={cn(
-              'flex-1 text-xs cursor-pointer hover:text-accent transition-colors',
-              subtask.completed && 'line-through text-muted-foreground'
-            )}
-          >
-            {subtask.name}
-          </span>
-          <div className="flex items-center gap-1 shrink-0">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
-              onClick={onMoveUp}
-              disabled={!canMoveUp}
-              title="Move subtask up"
+        <div className={cn('grid flex-1 min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start', gridGapClass)}>
+          <div className="min-w-0">
+            <span
+              onClick={startEditing}
+              className={cn(
+                'block w-full whitespace-normal break-words text-xs leading-snug cursor-pointer hover:text-accent transition-colors',
+                subtask.completed && 'line-through text-muted-foreground'
+              )}
             >
-              <CaretUp size={14} />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
-              onClick={onMoveDown}
-              disabled={!canMoveDown}
-              title="Move subtask down"
-            >
-              <CaretDown size={14} />
-            </Button>
+              {subtask.name}
+            </span>
           </div>
-          <Badge 
-            variant="outline" 
-            className="text-xs cursor-pointer hover:bg-accent/10 transition-colors shrink-0"
-            onClick={startEditing}
-          >
-            {subtask.iterations}
-          </Badge>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 shrink-0"
-                title="More actions"
+          <div className={cn('flex max-w-full items-center shrink-0', controlGapClass)}>
+            {showInlineMoveButtons && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={controlButtonClass}
+                  onClick={onMoveUp}
+                  disabled={!canMoveUp}
+                  title="Move subtask up"
+                >
+                  <CaretUp size={controlIconSize} />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={controlButtonClass}
+                  onClick={onMoveDown}
+                  disabled={!canMoveDown}
+                  title="Move subtask down"
+                >
+                  <CaretDown size={controlIconSize} />
+                </Button>
+              </>
+            )}
+            {showIterationsBadge && (
+              <Badge 
+                variant="outline" 
+                className={cn(
+                  'cursor-pointer hover:bg-accent/10 transition-colors shrink-0',
+                  layoutMode === 'comfortable' ? 'text-xs' : 'text-[10px] px-1'
+                )}
+                onClick={startEditing}
               >
-                <DotsThree size={14} weight="bold" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={onMoveUp} disabled={!canMoveUp}>
-                Move up
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={onMoveDown} disabled={!canMoveDown}>
-                Move down
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={onDelete}
-                className="text-destructive focus:text-destructive"
-              >
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </>
+                {subtask.iterations}
+              </Badge>
+            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={cn(controlButtonClass, 'shrink-0')}
+                  title="More actions"
+                >
+                  <DotsThree size={controlIconSize} weight="bold" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={startEditing}>
+                  Edit
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={onMoveUp} disabled={!canMoveUp}>
+                  Move up
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={onMoveDown} disabled={!canMoveDown}>
+                  Move down
+                </DropdownMenuItem>
+                {canMoveToAnotherTask && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={onMoveToTask}>
+                      Move to task...
+                    </DropdownMenuItem>
+                  </>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={onDelete}
+                  className="text-destructive focus:text-destructive"
+                >
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
       )}
     </div>
   )
@@ -226,7 +314,9 @@ export function TaskItem({
   onMoveUp,
   onMoveDown,
   canMoveUp = false,
-  canMoveDown = false
+  canMoveDown = false,
+  otherTasks = [],
+  onMoveSubtaskToTask
 }: TaskItemProps) {
   const [isAddingSubtask, setIsAddingSubtask] = useState(false)
   const [subtaskName, setSubtaskName] = useState('')
@@ -235,7 +325,18 @@ export function TaskItem({
   const [editName, setEditName] = useState(task.name)
   const [editIterations, setEditIterations] = useState(task.iterations.toString())
   const [showRecurrenceDialog, setShowRecurrenceDialog] = useState(false)
-  const subtaskInputRef = useRef<HTMLInputElement>(null)
+  const [subtaskToMove, setSubtaskToMove] = useState<string | null>(null)
+  const subtaskInputRef = useRef<HTMLTextAreaElement>(null)
+
+  const resizeTextarea = (element: HTMLTextAreaElement | null) => {
+    if (!element) return
+    element.style.height = 'auto'
+    element.style.height = `${Math.min(element.scrollHeight, 144)}px`
+  }
+
+  useEffect(() => {
+    resizeTextarea(subtaskInputRef.current)
+  }, [subtaskName, isAddingSubtask])
 
   const totalIterations = calculateTaskIterations(task)
   const timeCalc = calculateTotalTime(totalIterations)
@@ -521,7 +622,7 @@ export function TaskItem({
           )}
 
           {!task.collapsed && task.subtasks.length > 0 && (
-            <div className="mt-2 ml-2 sm:ml-4 space-y-1">
+            <div className="mt-2 ml-2 sm:ml-4 min-w-0 max-w-full space-y-1 overflow-hidden">
               {task.subtasks.map((subtask, index) => (
                 <SubtaskItem
                   key={subtask.id}
@@ -534,6 +635,8 @@ export function TaskItem({
                   onMoveDown={() => moveSubtask(subtask.id, 'down')}
                   canMoveUp={index > 0}
                   canMoveDown={index < task.subtasks.length - 1}
+                  onMoveToTask={() => setSubtaskToMove(subtask.id)}
+                  canMoveToAnotherTask={true}
                 />
               ))}
             </div>
@@ -541,19 +644,24 @@ export function TaskItem({
 
           {!task.collapsed && isAddingSubtask && (
             <div className="mt-2 ml-2 sm:ml-4 flex flex-col sm:flex-row gap-2">
-              <Input
+              <Textarea
                 ref={subtaskInputRef}
                 id="subtask-name"
                 placeholder="Subtask name"
                 value={subtaskName}
                 onChange={(e) => setSubtaskName(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
                     addSubtaskAndKeepOpen()
                     setTimeout(() => subtaskInputRef.current?.focus(), 50)
                   }
+                  if (e.key === 'Escape') {
+                    e.preventDefault()
+                    setIsAddingSubtask(false)
+                  }
                 }}
-                className="h-8 text-xs flex-1 min-w-0"
+                className="min-h-[2rem] max-h-36 resize-none overflow-y-auto text-xs leading-tight flex-1 min-w-0"
                 autoFocus
               />
               <Input
@@ -724,6 +832,41 @@ export function TaskItem({
         recurrence={task.recurrence}
         onSave={handleSaveRecurrence}
       />
+
+      {subtaskToMove && (
+        <AlertDialog open={!!subtaskToMove} onOpenChange={(open) => !open && setSubtaskToMove(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Move subtask to task</AlertDialogTitle>
+              <AlertDialogDescription>
+                Select a task to move this subtask to:
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="max-h-64 overflow-y-auto space-y-2">
+              {otherTasks.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4">No other tasks available</p>
+              ) : (
+                otherTasks.map((t) => (
+                  <Button
+                    key={t.id}
+                    variant="outline"
+                    className="w-full justify-start text-left"
+                    onClick={() => {
+                      if (onMoveSubtaskToTask) {
+                        onMoveSubtaskToTask(subtaskToMove, t.id)
+                      }
+                      setSubtaskToMove(null)
+                    }}
+                  >
+                    {t.name}
+                  </Button>
+                ))
+              )}
+            </div>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   )
 }

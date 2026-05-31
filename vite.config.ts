@@ -7,6 +7,7 @@ import createIconImportProxy from "@github/spark/vitePhosphorIconProxyPlugin";
 import { resolve } from 'path'
 
 const projectRoot = process.env.PROJECT_ROOT || import.meta.dirname
+const apiProxyTarget = process.env.VITE_API_PROXY_TARGET || "http://localhost:7071"
 
 export default defineConfig({
   plugins: [
@@ -19,5 +20,17 @@ export default defineConfig({
     alias: {
       '@': resolve(projectRoot, 'src')
     }
+  },
+  server: {
+    proxy: {
+      "/api": {
+        target: apiProxyTarget,
+        changeOrigin: true,
+      },
+      "/.auth": {
+        target: apiProxyTarget,
+        changeOrigin: true,
+      },
+    },
   },
 });
