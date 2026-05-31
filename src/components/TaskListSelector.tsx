@@ -28,7 +28,7 @@ import { CaretDown, Plus, Trash, PencilSimple, Check, X, Copy, ChartBar, Image, 
 import { toast } from 'sonner'
 
 type ImportLocalDataOptions = {
-  mode: 'overwrite-current' | 'new-list'
+  mode: 'overwrite-current' | 'new-list' | 'restore-all'
   newListName?: string
 }
 
@@ -240,6 +240,15 @@ export function TaskListSelector({
       return
     }
     onImportLocalData?.(pendingImportFile, { mode: 'overwrite-current' })
+    resetImportFlow()
+  }
+
+  const handleRestoreAll = () => {
+    if (!pendingImportFile) {
+      resetImportFlow()
+      return
+    }
+    onImportLocalData?.(pendingImportFile, { mode: 'restore-all' })
     resetImportFlow()
   }
 
@@ -660,23 +669,30 @@ export function TaskListSelector({
           <AlertDialogHeader>
             <AlertDialogTitle>Import local backup</AlertDialogTitle>
             <AlertDialogDescription>
-              Importing can replace tasks in your current list. Do you want to overwrite the current list or import into a new list?
+              Choose how to import this backup. <strong>Restore all lists</strong> rebuilds every list with its original name. Or import just the tasks into one list.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={resetImportFlow}>Cancel</AlertDialogCancel>
+          <AlertDialogFooter className="flex-col gap-2 sm:flex-col">
             <AlertDialogAction
-              className="bg-secondary text-secondary-foreground hover:bg-secondary/90"
-              onClick={handleImportIntoNewList}
+              onClick={handleRestoreAll}
             >
-              Import to new list
+              Restore all lists
             </AlertDialogAction>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={handleImportOverwriteCurrent}
-            >
-              Overwrite current list
-            </AlertDialogAction>
+            <div className="flex gap-2 w-full justify-end">
+              <AlertDialogCancel onClick={resetImportFlow}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-secondary text-secondary-foreground hover:bg-secondary/90"
+                onClick={handleImportIntoNewList}
+              >
+                Import to new list
+              </AlertDialogAction>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={handleImportOverwriteCurrent}
+              >
+                Overwrite current
+              </AlertDialogAction>
+            </div>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

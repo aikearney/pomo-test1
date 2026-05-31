@@ -95,7 +95,7 @@ type LocalStorageBackup = {
 }
 
 type LocalStorageImportOptions = {
-  mode: 'overwrite-current' | 'new-list'
+  mode: 'overwrite-current' | 'new-list' | 'restore-all'
   newListName?: string
 }
 
@@ -362,6 +362,29 @@ function App() {
 
       if (!parsed) {
         throw new Error('Invalid backup file')
+      }
+
+      if (options.mode === 'restore-all') {
+        // Clear existing pomodoro-* and special keys before restoring
+        const keysToRemove: string[] = []
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i)
+          if (key && isLocalStorageBackupKey(key)) keysToRemove.push(key)
+        }
+        keysToRemove.forEach((k) => localStorage.removeItem(k))
+
+        // Write every entry from the backup
+        for (const [key, value] of Object.entries(parsed.entries)) {
+          localStorage.setItem(key, value)
+        }
+
+        const listManifest = parseImportedTaskLists(parsed.entries[LOCAL_LISTS_KEY])
+        const listCount = listManifest.length || 1
+        toast.success('All lists restored', {
+          description: `Restored ${listCount} list${listCount !== 1 ? 's' : ''} from backup. Reloading...`,
+        })
+        window.location.reload()
+        return
       }
 
       const importedLists = parseImportedTaskLists(parsed.entries[LOCAL_LISTS_KEY])
