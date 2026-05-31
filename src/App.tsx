@@ -88,6 +88,7 @@ const LOCAL_STORAGE_BACKUP_VERSION = 1
 const LOCAL_STORAGE_BACKUP_PREFIX = 'pomodoro-'
 const LOCAL_STORAGE_BACKUP_SPECIAL_KEYS = new Set(['personalTasks'])
 const AUTH_ME_TIMEOUT_MS = 5000
+const AUTH_LOCAL_MIGRATION_KEY_PREFIX = 'pomodoro-auth-local-migration:'
 
 type LocalStorageBackup = {
   version: number
@@ -296,6 +297,7 @@ function App() {
   const [isLoadingTasks, setIsLoadingTasks] = useState(false)
   const [isAnonymousMode, setIsAnonymousMode] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [authUserId, setAuthUserId] = useState<string | null>(null)
   const [authDisplayName, setAuthDisplayName] = useState<string | null>(null)
   const [showLoginOverlay, setShowLoginOverlay] = useState(false)
   const lastBackupFileHandleRef = useRef<any | null>(null)
@@ -329,6 +331,17 @@ function App() {
 
   const persistTasksForList = (listId: string, nextTasks: Task[]) => {
     localStorage.setItem(getLocalTasksStorageKey(listId), JSON.stringify(nextTasks))
+  }
+
+  const readLocalTasksForList = (listId: string): Task[] => {
+    const raw = localStorage.getItem(getLocalTasksStorageKey(listId))
+    if (!raw) return []
+    try {
+      const parsed = JSON.parse(raw) as Task[]
+      return Array.isArray(parsed) ? parsed : []
+    } catch {
+      return []
+    }
   }
 
   const exportLocalBackup = (filename: string) => {
@@ -688,6 +701,7 @@ function App() {
         if (!res.ok) {
           if (!cancelled) {
             setIsAuthenticated(false)
+            setAuthUserId(null)
             setAuthDisplayName(null)
           }
           return
@@ -706,12 +720,16 @@ function App() {
           null
 
         if (!cancelled) {
-          setIsAuthenticated(Boolean(principal?.user_id))
+          const userId =
+            typeof principal?.user_id === 'string' ? principal.user_id : null
+          setIsAuthenticated(Boolean(userId))
+          setAuthUserId(userId)
           setAuthDisplayName(nameClaim)
         }
       } catch {
         if (!cancelled) {
           setIsAuthenticated(false)
+          setAuthUserId(null)
           setAuthDisplayName(null)
         }
       } finally {
@@ -790,6 +808,175 @@ function App() {
       cancelled = true
     }
   }, [])
+
+  // One-time per-user migration: merge local anonymous data into signed-in storage.
+  useEffect(() => {
+    if (
+      !isAuthenticated ||
+      isAnonymousMode ||
+      !authUserId ||
+      isLoadingLists ||
+      taskLists.length === 0
+    ) {
+      return
+    }
+
+    const migrationKey = `${AUTH_LOCAL_MIGRATION_KEY_PREFIX}${authUserId}`
+    if (localStorage.getItem(migrationKey) === 'done') {
+      return
+    }
+
+    let cancelled = false
+
+    const createTaskInList = async (listId: string, task: Task) => {
+      const payload = {
+        name: task.name,
+        iterations: Math.max(1, Number(task.iterations) || 1),
+        subtasks: Array.isArray(task.subtasks) ? task.subtasks : [],
+        isHighPriority: Boolean(task.isHighPriority),
+        recurrence: task.recurrence,
+      }
+
+      return apiFetch<Task>(`/api/lists/${encodeURIComponent(listId)}/tasks`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      })
+    }
+
+    const runMigration = async () => {
+      try {
+        const normalizeName = (name: string) => name.trim().toLowerCase()
+        const taskSignature = (task: Task) => {
+          const name = (task.name || '').trim().toLowerCase()
+          const iterations = Math.max(1, Number(task.iterations) || 1)
+          const isHighPriority = Boolean(task.isHighPriority)
+          const subtasks = JSON.stringify(
+            (Array.isArray(task.subtasks) ? task.subtasks : [])
+              .map((subtask) => String(subtask || '').trim().toLowerCase())
+              .filter(Boolean)
+          )
+          const recurrence = task.recurrence ? JSON.stringify(task.recurrence) : 'null'
+          return `${name}::${iterations}::${isHighPriority}::${subtasks}::${recurrence}`
+        }
+
+        const remoteByName = new Map(
+          (taskLists || []).map((list) => [normalizeName(list.name), list] as const)
+        )
+
+        const personalLocalTasks = readLocalTasksForList('personal')
+        const localLists = readLocalLists()
+        const localSources = [
+          { name: 'Personal', tasks: personalLocalTasks },
+          ...localLists.map((list) => ({
+            name: list.name,
+            tasks: readLocalTasksForList(list.id),
+          })),
+        ].filter((source) => source.tasks.length > 0)
+
+        if (localSources.length === 0) {
+          localStorage.setItem(migrationKey, 'done')
+          return
+        }
+
+        const createdLists: TaskList[] = []
+        const appendedCurrentListTasks: Task[] = []
+        let importedTaskCount = 0
+        let skippedDuplicateTaskCount = 0
+
+        for (const source of localSources) {
+          const normalized = normalizeName(source.name)
+          let targetList = remoteByName.get(normalized)
+
+          if (!targetList) {
+            targetList = await apiFetch<TaskList>('/api/lists', {
+              method: 'POST',
+              body: JSON.stringify({ name: source.name }),
+            })
+            remoteByName.set(normalized, targetList)
+            createdLists.push(targetList)
+          }
+
+          const existingRemoteTasks = await apiFetch<Task[]>(
+            `/api/lists/${encodeURIComponent(targetList.id)}/tasks`
+          )
+          const existingRemoteSignatures = new Set(
+            (existingRemoteTasks || []).map((task) => taskSignature(task))
+          )
+          const sourceSeenSignatures = new Set<string>()
+          const tasksToCreate: Task[] = []
+
+          for (const task of source.tasks) {
+            const signature = taskSignature(task)
+            if (sourceSeenSignatures.has(signature)) {
+              skippedDuplicateTaskCount += 1
+              continue
+            }
+            sourceSeenSignatures.add(signature)
+
+            if (existingRemoteSignatures.has(signature)) {
+              skippedDuplicateTaskCount += 1
+              continue
+            }
+
+            existingRemoteSignatures.add(signature)
+            tasksToCreate.push(task)
+          }
+
+          const createdTasks = await Promise.all(
+            tasksToCreate.map((task) => createTaskInList(targetList.id, task))
+          )
+          importedTaskCount += createdTasks.length
+
+          if (targetList.id === currentTaskListId) {
+            appendedCurrentListTasks.push(...createdTasks)
+          }
+        }
+
+        localStorage.setItem(migrationKey, 'done')
+
+        if (cancelled) return
+
+        if (createdLists.length > 0) {
+          setTaskLists((currentLists) => [...(currentLists || []), ...createdLists])
+        }
+
+        if (appendedCurrentListTasks.length > 0) {
+          setTasks((currentTasks) => [...(currentTasks || []), ...appendedCurrentListTasks])
+        }
+
+        toast.success('Local data synced to your account', {
+          description: `Imported ${importedTaskCount} task${importedTaskCount !== 1 ? 's' : ''}, skipped ${skippedDuplicateTaskCount} duplicate${
+            skippedDuplicateTaskCount !== 1 ? 's' : ''
+          }${
+            createdLists.length > 0
+              ? `, and created ${createdLists.length} list${createdLists.length !== 1 ? 's' : ''}`
+              : ''
+          }.`,
+        })
+      } catch (err: any) {
+        console.error('Error migrating local data to account', err)
+        if (!cancelled) {
+          toast.error('Could not sync local data to your account', {
+            description:
+              err?.message || 'You can still import/export manually from Local Data.',
+          })
+        }
+      }
+    }
+
+    void runMigration()
+
+    return () => {
+      cancelled = true
+    }
+  }, [
+    authUserId,
+    currentTaskListId,
+    isAnonymousMode,
+    isAuthenticated,
+    isLoadingLists,
+    taskLists,
+  ])
 
   // Persist current list id locally (for UX)
   useEffect(() => {

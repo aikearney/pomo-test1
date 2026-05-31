@@ -31,7 +31,14 @@ interface TaskItemProps {
   onUpdate: (task: Task) => void
   onDelete: () => void
   isActive: boolean
+  onDragStart?: () => void
+  onDragEnd?: () => void
+  onDragOver?: (e: React.DragEvent<HTMLDivElement>) => void
+  onDrop?: () => void
+  isDragging?: boolean
+  isDragOver?: boolean
   onSelect?: () => void
+  onTouchReorder?: (direction: 'up' | 'down') => void
   onMoveUp?: () => void
   onMoveDown?: () => void
   canMoveUp?: boolean
@@ -310,7 +317,14 @@ export function TaskItem({
   onUpdate, 
   onDelete, 
   isActive,
+  onDragStart,
+  onDragEnd,
+  onDragOver,
+  onDrop,
+  isDragging = false,
+  isDragOver = false,
   onSelect,
+  onTouchReorder,
   onMoveUp,
   onMoveDown,
   canMoveUp = false,
@@ -515,13 +529,51 @@ export function TaskItem({
     onUpdate({ ...task, recurrence })
   }
 
+  const handleMoveUp = (e?: React.MouseEvent) => {
+    e?.stopPropagation()
+    if (onMoveUp) {
+      onMoveUp()
+      return
+    }
+    onTouchReorder?.('up')
+  }
+
+  const handleMoveDown = (e?: React.MouseEvent) => {
+    e?.stopPropagation()
+    if (onMoveDown) {
+      onMoveDown()
+      return
+    }
+    onTouchReorder?.('down')
+  }
+
+  const canMoveUpAction = canMoveUp || Boolean(onTouchReorder)
+  const canMoveDownAction = canMoveDown || Boolean(onTouchReorder)
+
   return (
     <div
+      draggable={Boolean(onDragStart || onDrop)}
+      onDragStart={(e) => {
+        e.stopPropagation()
+        onDragStart?.()
+      }}
+      onDragEnd={(e) => {
+        e.stopPropagation()
+        onDragEnd?.()
+      }}
+      onDragOver={(e) => onDragOver?.(e)}
+      onDrop={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        onDrop?.()
+      }}
       className={cn(
         'border rounded-lg p-2.5 sm:p-3 transition-all relative',
         isActive ? 'border-accent bg-accent/5 ring-2 ring-accent/20' : 'border-border bg-card',
         task.completed && 'opacity-60',
-        task.isHighPriority && !task.completed && 'border-primary bg-primary/5'
+        task.isHighPriority && !task.completed && 'border-primary bg-primary/5',
+        isDragging && 'opacity-50',
+        isDragOver && 'ring-2 ring-primary/30'
       )}
     >
       <div className="flex items-start gap-2">
@@ -711,12 +763,9 @@ export function TaskItem({
             <Button
               variant="ghost"
               size="icon"
-              onClick={(e) => {
-                e.stopPropagation()
-                onMoveUp?.()
-              }}
+              onClick={handleMoveUp}
               className="h-8 w-8"
-              disabled={!canMoveUp}
+              disabled={!canMoveUpAction}
               title="Move task up"
             >
               <CaretUp size={16} />
@@ -724,12 +773,9 @@ export function TaskItem({
             <Button
               variant="ghost"
               size="icon"
-              onClick={(e) => {
-                e.stopPropagation()
-                onMoveDown?.()
-              }}
+              onClick={handleMoveDown}
               className="h-8 w-8"
-              disabled={!canMoveDown}
+              disabled={!canMoveDownAction}
               title="Move task down"
             >
               <CaretDown size={16} />
@@ -766,20 +812,14 @@ export function TaskItem({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onMoveUp?.()
-                  }}
-                  disabled={!canMoveUp}
+                  onClick={handleMoveUp}
+                  disabled={!canMoveUpAction}
                 >
                   Move up
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onMoveDown?.()
-                  }}
-                  disabled={!canMoveDown}
+                  onClick={handleMoveDown}
+                  disabled={!canMoveDownAction}
                 >
                   Move down
                 </DropdownMenuItem>
