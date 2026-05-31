@@ -332,7 +332,30 @@ function App() {
   }
 
   const exportLocalBackup = (filename: string) => {
-    const entries = readLocalStorageBackupEntries()
+    const hasApiBackedCurrentList =
+      !!currentTaskListId && !isAnonymousMode && !isLocalListId(currentTaskListId)
+
+    const entries = hasApiBackedCurrentList
+      ? (() => {
+          const currentList = (taskLists || []).find(
+            (list) => list.id === currentTaskListId
+          )
+          const listManifest = currentList
+            ? [
+                {
+                  id: currentList.id,
+                  name: currentList.name,
+                  createdAt: currentList.createdAt,
+                },
+              ]
+            : []
+
+          return {
+            [LOCAL_LISTS_KEY]: JSON.stringify(listManifest),
+            [`pomodoro-local-tasks:${currentTaskListId}`]: JSON.stringify(tasks || []),
+          }
+        })()
+      : readLocalStorageBackupEntries()
     const backup: LocalStorageBackup = {
       version: LOCAL_STORAGE_BACKUP_VERSION,
       exportedAt: Date.now(),
@@ -434,6 +457,18 @@ function App() {
         throw new Error('Invalid backup file')
       }
 
+      const hasApiBackedCurrentList =
+        !!currentTaskListId && !isAnonymousMode && !isLocalListId(currentTaskListId)
+
+      if (
+        hasApiBackedCurrentList &&
+        (options.mode === 'restore-all-replace' || options.mode === 'restore-all-merge')
+      ) {
+        throw new Error(
+          'Restore all modes are available for local backups only. Choose "Import one list by name" for signed-in lists.'
+        )
+      }
+
       if (options.mode === 'restore-all-replace') {
         const keysToRemove: string[] = []
         for (let i = 0; i < localStorage.length; i++) {
@@ -491,6 +526,82 @@ function App() {
             : `pomodoro-local-tasks:${importedSourceListId}`
         ] || parsed.entries.personalTasks
       )
+
+      const createTaskInList = async (listId: string, task: Task) => {
+        const payload = {
+          name: task.name,
+          iterations: Math.max(1, Number(task.iterations) || 1),
+          subtasks: Array.isArray(task.subtasks) ? task.subtasks : [],
+          isHighPriority: Boolean(task.isHighPriority),
+          recurrence: task.recurrence,
+        }
+
+        return apiFetch<Task>(
+          `/api/lists/${encodeURIComponent(listId)}/tasks`,
+          {
+            method: 'POST',
+            body: JSON.stringify(payload),
+          }
+        )
+      }
+
+      if (hasApiBackedCurrentList) {
+        if (options.mode === 'new-list') {
+          const newListName =
+            options.newListName?.trim() ||
+            importedSourceList?.name ||
+            'Imported List'
+
+          const newList = await apiFetch<TaskList>('/api/lists', {
+            method: 'POST',
+            body: JSON.stringify({ name: newListName }),
+          })
+
+          const createdTasks = await Promise.all(
+            importedTasks.map((task) => createTaskInList(newList.id, task))
+          )
+
+          setTaskLists((currentLists) => [...(currentLists || []), newList])
+          setCurrentTaskListId(newList.id)
+          setTasks(createdTasks)
+
+          toast.success('Backup imported to new list', {
+            description: `Created "${newListName}" with ${createdTasks.length} tasks.`,
+          })
+          return
+        }
+
+        const targetListId = currentTaskListId as string
+        const existingTasks = await apiFetch<Task[]>(
+          `/api/lists/${encodeURIComponent(targetListId)}/tasks`
+        )
+
+        await Promise.all(
+          (existingTasks || []).map((task) =>
+            apiFetch(`/api/tasks/${encodeURIComponent(task.id)}`, {
+              method: 'DELETE',
+            })
+          )
+        )
+
+        const createdTasks = await Promise.all(
+          importedTasks.map((task) => createTaskInList(targetListId, task))
+        )
+
+        setTasks(createdTasks)
+
+        const currentListName =
+          taskLists.find((list) => list.id === targetListId)?.name ||
+          'current list'
+        const sourceListName =
+          importedLists.find((list) => list.id === importedSourceListId)?.name ||
+          (importedSourceListId === 'personal' ? 'Personal' : 'selected list')
+
+        toast.success('Backup imported', {
+          description: `Imported "${sourceListName}" into "${currentListName}" (${createdTasks.length} tasks).`,
+        })
+        return
+      }
 
       if (options.mode === 'new-list') {
         const newListName =
