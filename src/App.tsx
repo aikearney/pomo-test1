@@ -87,6 +87,7 @@ async function apiFetch<T = any>(
 const LOCAL_STORAGE_BACKUP_VERSION = 1
 const LOCAL_STORAGE_BACKUP_PREFIX = 'pomodoro-'
 const LOCAL_STORAGE_BACKUP_SPECIAL_KEYS = new Set(['personalTasks'])
+const AUTH_ME_TIMEOUT_MS = 5000
 
 type LocalStorageBackup = {
   version: number
@@ -565,8 +566,14 @@ function App() {
     let cancelled = false
 
     const loadAuthState = async () => {
+      const controller = new AbortController()
+      const timeoutId = window.setTimeout(() => controller.abort(), AUTH_ME_TIMEOUT_MS)
+
       try {
-        const res = await fetch('/.auth/me', { credentials: 'include' })
+        const res = await fetch('/.auth/me', {
+          credentials: 'include',
+          signal: controller.signal,
+        })
         if (!res.ok) {
           if (!cancelled) {
             setIsAuthenticated(false)
@@ -596,6 +603,8 @@ function App() {
           setIsAuthenticated(false)
           setAuthDisplayName(null)
         }
+      } finally {
+        window.clearTimeout(timeoutId)
       }
     }
 

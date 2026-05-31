@@ -23,15 +23,13 @@ jobs:
         with:
           node-version: '22.x'
 
-      - name: Install dependencies
+      - name: npm install, build, and test
         run: |
           npm ci
           npm --prefix src/api ci
-
-      - name: Build frontend and API
-        run: |
           npm run build
           npm --prefix src/api run build
+          npm run test --if-present
 
       - name: Prepare deploy package
         run: |
