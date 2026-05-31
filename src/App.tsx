@@ -328,7 +328,7 @@ function App() {
     localStorage.setItem(getLocalTasksStorageKey(listId), JSON.stringify(nextTasks))
   }
 
-  const exportLocalBackup = () => {
+  const exportLocalBackup = (filename: string) => {
     const entries = readLocalStorageBackupEntries()
     const backup: LocalStorageBackup = {
       version: LOCAL_STORAGE_BACKUP_VERSION,
@@ -336,19 +336,20 @@ function App() {
       entries,
     }
 
+    const safeName = filename.replace(/\.json$/i, '').trim() || 'pomodoro-backup'
     const blob = new Blob([JSON.stringify(backup, null, 2)], {
       type: 'application/json',
     })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `pomodoro-local-backup-${formatBackupTimestamp(new Date())}.json`
+    link.download = `${safeName}.json`
     document.body.appendChild(link)
     link.click()
     link.remove()
     URL.revokeObjectURL(url)
 
-    toast.success('Backup exported')
+    toast.success('Backup exported', { description: `Saved as ${safeName}.json` })
   }
 
   const importLocalBackup = async (

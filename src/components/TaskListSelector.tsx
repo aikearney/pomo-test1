@@ -46,7 +46,7 @@ interface TaskListSelectorProps {
   onBackgroundChange: (background: string | null) => void
   onOpacityChange: (opacity: number) => void
   onUpload: (file: File) => void
-  onExportLocalData?: () => void
+  onExportLocalData?: (filename: string) => void
   onImportLocalData?: (file: File, options: ImportLocalDataOptions) => void
   isAnonymousMode?: boolean
   isAuthenticated?: boolean
@@ -153,6 +153,8 @@ export function TaskListSelector({
   const [showImportChoiceDialog, setShowImportChoiceDialog] = useState(false)
   const [showImportNameDialog, setShowImportNameDialog] = useState(false)
   const [importListName, setImportListName] = useState('')
+  const [showExportNameDialog, setShowExportNameDialog] = useState(false)
+  const [exportFileName, setExportFileName] = useState('')
   const [isOpen, setIsOpen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const editInputRef = useRef<HTMLInputElement>(null)
@@ -392,7 +394,9 @@ export function TaskListSelector({
                   {onExportLocalData && (
                     <DropdownMenuItem
                       onClick={() => {
-                        onExportLocalData()
+                        const today = new Date().toISOString().split('T')[0]
+                        setExportFileName(`pomodoro-backup-${today}`)
+                        setShowExportNameDialog(true)
                         setIsOpen(false)
                       }}
                     >
@@ -578,6 +582,58 @@ export function TaskListSelector({
           )}
         </DropdownMenuContent>
       </DropdownMenu>
+
+      <AlertDialog
+        open={showExportNameDialog}
+        onOpenChange={(open) => {
+          if (!open) {
+            setShowExportNameDialog(false)
+            setExportFileName('')
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Name your backup file</AlertDialogTitle>
+            <AlertDialogDescription>
+              Choose a filename for the backup. A <code>.json</code> extension will be added automatically.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2">
+            <Input
+              value={exportFileName}
+              onChange={(e) => setExportFileName(e.target.value)}
+              placeholder="pomodoro-backup"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  const name = exportFileName.trim()
+                  if (name) {
+                    setShowExportNameDialog(false)
+                    onExportLocalData?.(name)
+                  }
+                }
+              }}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => { setShowExportNameDialog(false); setExportFileName('') }}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const name = exportFileName.trim()
+                if (!name) {
+                  toast.error('Please enter a filename')
+                  return
+                }
+                setShowExportNameDialog(false)
+                onExportLocalData?.(name)
+              }}
+            >
+              Save backup
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={deleteConfirmListId !== null} onOpenChange={(open) => !open && setDeleteConfirmListId(null)}>
         <AlertDialogContent>
