@@ -16,6 +16,8 @@ function getAuthenticatedUserId(req: Request): string | undefined {
   return getUserId({ headers: req.headers });
 }
 
+const USER_ID_FILTER = "(c.userId = @userId OR c.userid = @userId)";
+
 // Wrapper to catch Cosmos connection errors gracefully
 function asyncHandler(fn: (req: Request, res: Response, next?: NextFunction) => Promise<void>): RequestHandler {
   return (req: Request, res: Response, next?: NextFunction) => {
@@ -54,7 +56,7 @@ app.get("/api/lists", asyncHandler(async (req, res) => {
   }
 
   const lists = getListsContainer();
-  const query = "SELECT * FROM c WHERE c.userId = @userId ORDER BY c.order ASC";
+  const query = `SELECT * FROM c WHERE ${USER_ID_FILTER} ORDER BY c.order ASC`;
   const { resources } = await lists.items
     .query({ query, parameters: [{ name: "@userId", value: userId }] })
     .fetchAll();
@@ -77,6 +79,7 @@ app.post("/api/lists", asyncHandler(async (req, res) => {
   const newList = {
     id: uuid(),
     userId: userId as string,
+    userid: userId as string,
     name: req.body.name,
     createdAt: Date.now(),
     color: req.body.color ?? null,
@@ -104,7 +107,12 @@ app.patch("/api/lists/:id", asyncHandler(async (req, res) => {
     return;
   }
 
-  const updated = { ...list, ...(req.body ?? {}) };
+  const updated = {
+    ...list,
+    ...(req.body ?? {}),
+    userId: userId as string,
+    userid: userId as string,
+  };
   await lists.item(listId, userId as string).replace(updated);
   res.status(200).json(updated);
 }));
@@ -126,7 +134,8 @@ app.delete("/api/lists/:id", asyncHandler(async (req, res) => {
     return;
   }
 
-  const query = "SELECT c.id FROM c WHERE c.userId = @userId AND c.listId = @listId";
+  const query =
+    "SELECT c.id FROM c WHERE (c.userId = @userId OR c.userid = @userId) AND c.listId = @listId";
   const { resources } = await tasks.items
     .query({
       query,
@@ -161,7 +170,7 @@ app.get("/api/lists/:id/tasks", asyncHandler(async (req, res) => {
   }
 
   const query =
-    "SELECT * FROM c WHERE c.userId = @userId AND c.listId = @listId ORDER BY c.createdAt ASC";
+    "SELECT * FROM c WHERE (c.userId = @userId OR c.userid = @userId) AND c.listId = @listId ORDER BY c.createdAt ASC";
   const { resources } = await tasks.items
     .query({
       query,
@@ -199,6 +208,7 @@ app.post("/api/lists/:id/tasks", asyncHandler(async (req, res) => {
   const newTask = {
     id: uuid(),
     userId: userId as string,
+    userid: userId as string,
     listId,
     name: req.body.name,
     iterations: req.body.iterations ?? 1,
@@ -229,7 +239,12 @@ app.patch("/api/tasks/:id", asyncHandler(async (req, res) => {
     return;
   }
 
-  const updated = { ...task, ...(req.body ?? {}) };
+  const updated = {
+    ...task,
+    ...(req.body ?? {}),
+    userId: userId as string,
+    userid: userId as string,
+  };
   await tasks.item(taskId, userId as string).replace(updated);
   res.status(200).json(updated);
 }));
