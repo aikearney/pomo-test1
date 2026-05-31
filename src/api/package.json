@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@azure/cosmos": "^4.4.1",
+    "@azure/identity": "^4.13.1",
     "express": "^4.21.2",
     "uuid": "^11.1.0"
   },
