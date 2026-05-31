@@ -4,6 +4,7 @@
 - Project: pomo-test1
 - User: aisling
 - Priority: frontend must stay the same during infrastructure migration
+- 2026-05-31: Completed anonymous-mode local storage backup and restore by exposing export/import from the task list dropdown, backing up `pomodoro-*` keys plus `personalTasks`, and restoring by replacing local app keys and reloading the UI.
 - 2026-05-30: Completed mobile reorder UX update by adding explicit up/down controls for tasks and subtasks while retaining drag-and-drop and long-press reorder behavior.
 - 2026-05-30: Decision captured in `.squad/decisions.md` with frontend-only scope and no API/schema contract changes.
 - 2026-05-30: Completed timer refresh persistence update so active timer state is restored reliably after page reload without changing backend contracts.
