@@ -1849,6 +1849,9 @@ function App() {
               onBackgroundChange={setBackgroundImage}
               onOpacityChange={setBackgroundOpacity}
               onUpload={handleBackgroundUpload}
+              onExportLocalData={exportLocalBackup}
+              onImportLocalData={importLocalBackup}
+              isAnonymousMode={isAnonymousMode}
               isAuthenticated={isAuthenticated}
               onLogin={() => setShowLoginOverlay(true)}
               onLogout={redirectToLogout}

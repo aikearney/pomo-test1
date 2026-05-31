@@ -323,44 +323,44 @@ export function TaskListSelector({
                         <Trash size={16} />
                       </Button>
                     )}
-            {isAnonymousMode && (onExportLocalData || onImportLocalData) && (
-              <>
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>
-                    <DownloadSimple size={16} className="mr-2" />
-                    Local Data
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent className="w-56">
-                    {onExportLocalData && (
-                      <DropdownMenuItem
-                        onClick={() => {
-                          onExportLocalData()
-                          setIsOpen(false)
-                        }}
-                      >
-                        <DownloadSimple size={16} className="mr-2" />
-                        Export Backup
-                      </DropdownMenuItem>
-                    )}
-                    {onImportLocalData && (
-                      <DropdownMenuItem
-                        onClick={() => importInputRef.current?.click()}
-                      >
-                        <UploadSimple size={16} className="mr-2" />
-                        Import Backup
-                      </DropdownMenuItem>
-                    )}
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
-                <DropdownMenuSeparator />
-              </>
-            )}
                   </div>
                 </div>
               )}
             </DropdownMenuItem>
           ))}
           <DropdownMenuSeparator />
+          {isAnonymousMode && (onExportLocalData || onImportLocalData) && (
+            <>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <DownloadSimple size={16} className="mr-2" />
+                  Local Data
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent className="w-56">
+                  {onExportLocalData && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        onExportLocalData()
+                        setIsOpen(false)
+                      }}
+                    >
+                      <DownloadSimple size={16} className="mr-2" />
+                      Export Backup
+                    </DropdownMenuItem>
+                  )}
+                  {onImportLocalData && (
+                    <DropdownMenuItem
+                      onClick={() => importInputRef.current?.click()}
+                    >
+                      <UploadSimple size={16} className="mr-2" />
+                      Import Backup
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+              <DropdownMenuSeparator />
+            </>
+          )}
           {isCreating ? (
             <div className="p-2 space-y-2" onClick={(e) => e.stopPropagation()}>
               <Input
