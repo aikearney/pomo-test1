@@ -88,5 +88,6 @@ jobs:
         with:
           app-name: 'pomo'
           slot-name: 'test1'
+          startup-command: 'npm --prefix src/api run start'
           package: .
           
