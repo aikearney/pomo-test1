@@ -56,12 +56,16 @@ app.get("/api/lists", asyncHandler(async (req, res) => {
   }
 
   const lists = getListsContainer();
-  const query = `SELECT * FROM c WHERE ${USER_ID_FILTER} ORDER BY c.order ASC`;
+  const query = `SELECT * FROM c WHERE ${USER_ID_FILTER}`;
   const { resources } = await lists.items
     .query({ query, parameters: [{ name: "@userId", value: userId }] })
     .fetchAll();
 
-  res.status(200).json(resources);
+  const orderedResources = resources
+    .slice()
+    .sort((a: any, b: any) => Number(a?.order ?? 0) - Number(b?.order ?? 0));
+
+  res.status(200).json(orderedResources);
 }));
 
 app.post("/api/lists", asyncHandler(async (req, res) => {
@@ -170,7 +174,7 @@ app.get("/api/lists/:id/tasks", asyncHandler(async (req, res) => {
   }
 
   const query =
-    "SELECT * FROM c WHERE (c.userId = @userId OR c.userid = @userId) AND c.listId = @listId ORDER BY c.createdAt ASC";
+    "SELECT * FROM c WHERE (c.userId = @userId OR c.userid = @userId) AND c.listId = @listId";
   const { resources } = await tasks.items
     .query({
       query,
@@ -181,7 +185,11 @@ app.get("/api/lists/:id/tasks", asyncHandler(async (req, res) => {
     })
     .fetchAll();
 
-  res.status(200).json(resources);
+  const orderedResources = resources
+    .slice()
+    .sort((a: any, b: any) => Number(a?.createdAt ?? 0) - Number(b?.createdAt ?? 0));
+
+  res.status(200).json(orderedResources);
 }));
 
 app.post("/api/lists/:id/tasks", asyncHandler(async (req, res) => {
