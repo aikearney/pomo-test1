@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Input } from '@/components/ui/input'
 import { Slider } from '@/components/ui/slider'
-import { CaretDown, Plus, Trash, PencilSimple, Check, X, Copy, ChartBar, Image, UploadSimple, Palette } from '@phosphor-icons/react'
+import { CaretDown, Plus, Trash, PencilSimple, Check, X, Copy, ChartBar, Image, UploadSimple, DownloadSimple, Palette } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 
 interface TaskListSelectorProps {
@@ -41,6 +41,9 @@ interface TaskListSelectorProps {
   onBackgroundChange: (background: string | null) => void
   onOpacityChange: (opacity: number) => void
   onUpload: (file: File) => void
+  onExportLocalData?: () => void
+  onImportLocalData?: (file: File) => void
+  isAnonymousMode?: boolean
   isAuthenticated?: boolean
   onLogin?: () => void
   onLogout?: () => void
@@ -129,6 +132,9 @@ export function TaskListSelector({
   onBackgroundChange,
   onOpacityChange,
   onUpload,
+  onExportLocalData,
+  onImportLocalData,
+  isAnonymousMode = false,
   isAuthenticated = false,
   onLogin,
   onLogout,
@@ -142,6 +148,7 @@ export function TaskListSelector({
   const inputRef = useRef<HTMLInputElement>(null)
   const editInputRef = useRef<HTMLInputElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const importInputRef = useRef<HTMLInputElement>(null)
 
   const currentTaskList = taskLists.find(list => list.id === currentTaskListId)
 
@@ -197,6 +204,15 @@ export function TaskListSelector({
     }
   }
 
+  const handleImportUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+
+    if (file) {
+      onImportLocalData?.(file)
+    }
+  }
+
   return (
     <>
       <input
@@ -204,6 +220,13 @@ export function TaskListSelector({
         type="file"
         accept="image/*"
         onChange={handleFileUpload}
+        className="hidden"
+      />
+      <input
+        ref={importInputRef}
+        type="file"
+        accept="application/json,.json"
+        onChange={handleImportUpload}
         className="hidden"
       />
       <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
@@ -381,6 +404,29 @@ export function TaskListSelector({
                 }}
               >
                 {isAuthenticated ? 'Logout' : 'Login'}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+            </>
+          )}
+          {isAnonymousMode && (
+            <>
+              <DropdownMenuItem
+                onClick={() => {
+                  onExportLocalData?.()
+                  setIsOpen(false)
+                }}
+              >
+                <DownloadSimple size={16} className="mr-2" />
+                Export Backup
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  importInputRef.current?.click()
+                  setIsOpen(false)
+                }}
+              >
+                <UploadSimple size={16} className="mr-2" />
+                Import Backup
               </DropdownMenuItem>
               <DropdownMenuSeparator />
             </>
