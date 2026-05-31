@@ -549,6 +549,8 @@ export function TaskItem({
 
   const canMoveUpAction = canMoveUp || Boolean(onTouchReorder)
   const canMoveDownAction = canMoveDown || Boolean(onTouchReorder)
+  const incompleteSubtasks = task.subtasks.filter(subtask => !subtask.completed)
+  const completedSubtasks = task.subtasks.filter(subtask => subtask.completed)
 
   return (
     <div
@@ -675,7 +677,10 @@ export function TaskItem({
 
           {!task.collapsed && task.subtasks.length > 0 && (
             <div className="mt-2 ml-2 sm:ml-4 min-w-0 max-w-full space-y-1 overflow-hidden">
-              {task.subtasks.map((subtask, index) => (
+              {incompleteSubtasks.map((subtask) => {
+                const subtaskIndex = task.subtasks.findIndex(st => st.id === subtask.id)
+
+                return (
                 <SubtaskItem
                   key={subtask.id}
                   subtask={subtask}
@@ -685,12 +690,13 @@ export function TaskItem({
                   onAddNew={() => setIsAddingSubtask(true)}
                   onMoveUp={() => moveSubtask(subtask.id, 'up')}
                   onMoveDown={() => moveSubtask(subtask.id, 'down')}
-                  canMoveUp={index > 0}
-                  canMoveDown={index < task.subtasks.length - 1}
+                  canMoveUp={subtaskIndex > 0}
+                  canMoveDown={subtaskIndex < task.subtasks.length - 1}
                   onMoveToTask={() => setSubtaskToMove(subtask.id)}
                   canMoveToAnotherTask={true}
                 />
-              ))}
+                )
+              })}
             </div>
           )}
 
@@ -754,6 +760,31 @@ export function TaskItem({
               <Plus size={14} className="mr-1" />
               Add Subtask
             </Button>
+          )}
+
+          {!task.collapsed && completedSubtasks.length > 0 && (
+            <div className="mt-2 ml-2 sm:ml-4 min-w-0 max-w-full space-y-1 overflow-hidden">
+              {completedSubtasks.map((subtask) => {
+                const subtaskIndex = task.subtasks.findIndex(st => st.id === subtask.id)
+
+                return (
+                <SubtaskItem
+                  key={subtask.id}
+                  subtask={subtask}
+                  onUpdate={(updatedSubtask) => updateSubtask(subtask.id, updatedSubtask)}
+                  onToggleComplete={() => toggleSubtaskComplete(subtask.id)}
+                  onDelete={() => deleteSubtask(subtask.id)}
+                  onAddNew={() => setIsAddingSubtask(true)}
+                  onMoveUp={() => moveSubtask(subtask.id, 'up')}
+                  onMoveDown={() => moveSubtask(subtask.id, 'down')}
+                  canMoveUp={subtaskIndex > 0}
+                  canMoveDown={subtaskIndex < task.subtasks.length - 1}
+                  onMoveToTask={() => setSubtaskToMove(subtask.id)}
+                  canMoveToAnotherTask={true}
+                />
+                )
+              })}
+            </div>
           )}
         </div>
 

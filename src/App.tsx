@@ -300,6 +300,7 @@ function App() {
   const [authUserId, setAuthUserId] = useState<string | null>(null)
   const [authDisplayName, setAuthDisplayName] = useState<string | null>(null)
   const [showLoginOverlay, setShowLoginOverlay] = useState(false)
+  const [isSyncingLocalData, setIsSyncingLocalData] = useState(false)
   const lastBackupFileHandleRef = useRef<any | null>(null)
 
   const AUTH_PROVIDER = (import.meta.env.VITE_AUTH_PROVIDER || 'aad').trim()
@@ -844,6 +845,7 @@ function App() {
     }
 
     const runMigration = async () => {
+      setIsSyncingLocalData(true)
       try {
         const normalizeName = (name: string) => name.trim().toLowerCase()
         const taskSignature = (task: Task) => {
@@ -961,6 +963,8 @@ function App() {
               err?.message || 'You can still import/export manually from Local Data.',
           })
         }
+      } finally {
+        setIsSyncingLocalData(false)
       }
     }
 
@@ -2308,6 +2312,12 @@ function App() {
   const incompleteTasks = tasksList.filter((t) => !t.completed)
   const completedTasks = tasksList.filter((t) => t.completed)
   const completedTasksCount = completedTasks.length
+  const showDataPrepOverlay =
+    isAuthenticated &&
+    !isAnonymousMode &&
+    (isSyncingLocalData ||
+      isLoadingLists ||
+      (isLoadingTasks && tasksList.length === 0))
 
   return (
     <>
@@ -2762,6 +2772,22 @@ function App() {
               >
                 Continue without login
               </Button>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {showDataPrepOverlay && (
+        <div className="fixed inset-0 z-40 bg-background/90 backdrop-blur-sm">
+          <div className="min-h-screen flex items-center justify-center p-6">
+            <Card className="w-full max-w-sm p-6 border shadow-xl text-center space-y-3">
+              <div className="mx-auto h-10 w-10 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
+              <h2 className="text-lg font-semibold">Preparing your workspace</h2>
+              <p className="text-sm text-muted-foreground">
+                {isSyncingLocalData
+                  ? 'Syncing your data...'
+                  : 'Loading your lists and tasks...'}
+              </p>
             </Card>
           </div>
         </div>
