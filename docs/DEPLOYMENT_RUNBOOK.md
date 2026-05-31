@@ -22,6 +22,10 @@ Set these in App Service Configuration.
 Required:
 - `COSMOS_CONNECTION_STRING`
 
+Or (managed identity mode):
+- `COSMOS_AUTH_MODE=managed-identity`
+- `COSMOS_ENDPOINT`
+
 Required for auth-enabled APIs:
 - `AUTH_CLIENT_ID`
 
@@ -43,6 +47,7 @@ Accepted alternates:
 Notes:
 - Avoid plain secret values in App Settings for production.
 - Restart App Service after any setting changes.
+- For managed identity mode, assign App Service identity the Cosmos data-plane role `Cosmos DB Built-in Data Contributor`.
 
 ## 3. Key Vault References
 

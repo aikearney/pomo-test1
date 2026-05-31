@@ -32,6 +32,11 @@ Required:
 - `COSMOS_CONNECTION_STRING`
 	- Recommended value source: Key Vault reference.
 
+Or (managed identity mode):
+
+- `COSMOS_AUTH_MODE=managed-identity`
+- `COSMOS_ENDPOINT` (for example `https://<cosmos-account>.documents.azure.com:443/`)
+
 Optional (defaults shown):
 
 - `COSMOS_DATABASE_ID` (default: `tasks-db`)
@@ -45,6 +50,12 @@ Accepted alternates:
 - `COSMOS_TASKS_CONTAINER_NAME`
 - `CUSTOMCONNSTR_COSMOS_CONNECTION_STRING`
 - `COSMOSDB_CONNECTION_STRING`
+
+Managed identity notes:
+
+- Managed identity mode avoids local keys and connection strings.
+- Assign App Service managed identity the Cosmos data-plane role `Cosmos DB Built-in Data Contributor`.
+- When cutover is complete and verified, you can disable local authorization in Cosmos.
 
 ## Key Vault Integration
 
