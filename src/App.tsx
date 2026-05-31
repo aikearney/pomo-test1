@@ -84,6 +84,68 @@ async function apiFetch<T = any>(
   return (await res.json()) as T
 }
 
+const LOCAL_STORAGE_BACKUP_VERSION = 1
+const LOCAL_STORAGE_BACKUP_PREFIX = 'pomodoro-'
+const LOCAL_STORAGE_BACKUP_SPECIAL_KEYS = new Set(['personalTasks'])
+
+type LocalStorageBackup = {
+  version: number
+  exportedAt: number
+  entries: Record<string, string>
+}
+
+function isLocalStorageBackupKey(key: string) {
+  return (
+    key.startsWith(LOCAL_STORAGE_BACKUP_PREFIX) ||
+    LOCAL_STORAGE_BACKUP_SPECIAL_KEYS.has(key)
+  )
+}
+
+function formatBackupTimestamp(date: Date) {
+  return date.toISOString().replace(/[:.]/g, '-')
+}
+
+function readLocalStorageBackupEntries() {
+  const entries: Record<string, string> = {}
+
+  for (let index = 0; index < localStorage.length; index += 1) {
+    const key = localStorage.key(index)
+    if (!key || !isLocalStorageBackupKey(key)) continue
+
+    const value = localStorage.getItem(key)
+    if (value !== null) {
+      entries[key] = value
+    }
+  }
+
+  return entries
+}
+
+function parseLocalStorageBackup(value: unknown): LocalStorageBackup | null {
+  if (!value || typeof value !== 'object') return null
+
+  const candidate = value as Partial<LocalStorageBackup>
+  if (candidate.version !== LOCAL_STORAGE_BACKUP_VERSION) return null
+  if (typeof candidate.exportedAt !== 'number') return null
+  if (!candidate.entries || typeof candidate.entries !== 'object') return null
+
+  const entries = candidate.entries as Record<string, unknown>
+  const validatedEntries: Record<string, string> = {}
+
+  for (const [key, entryValue] of Object.entries(entries)) {
+    if (typeof key !== 'string' || typeof entryValue !== 'string') {
+      return null
+    }
+    validatedEntries[key] = entryValue
+  }
+
+  return {
+    version: candidate.version,
+    exportedAt: candidate.exportedAt,
+    entries: validatedEntries,
+  }
+}
+
 const TIMER_RUNTIME_STORAGE_KEY = 'pomodoro-timer-runtime'
 
 type PersistedTimerRuntime = {
@@ -236,6 +298,65 @@ function App() {
 
   const persistTasksForList = (listId: string, nextTasks: Task[]) => {
     localStorage.setItem(getLocalTasksStorageKey(listId), JSON.stringify(nextTasks))
+  }
+
+  const exportLocalBackup = () => {
+    const entries = readLocalStorageBackupEntries()
+    const backup: LocalStorageBackup = {
+      version: LOCAL_STORAGE_BACKUP_VERSION,
+      exportedAt: Date.now(),
+      entries,
+    }
+
+    const blob = new Blob([JSON.stringify(backup, null, 2)], {
+      type: 'application/json',
+    })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `pomodoro-local-backup-${formatBackupTimestamp(new Date())}.json`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+
+    toast.success('Backup exported')
+  }
+
+  const importLocalBackup = async (file: File) => {
+    try {
+      const raw = await file.text()
+      const parsed = parseLocalStorageBackup(JSON.parse(raw))
+
+      if (!parsed) {
+        throw new Error('Invalid backup file')
+      }
+
+      const keysToClear: string[] = []
+      for (let index = 0; index < localStorage.length; index += 1) {
+        const key = localStorage.key(index)
+        if (key && isLocalStorageBackupKey(key)) {
+          keysToClear.push(key)
+        }
+      }
+
+      keysToClear.forEach((key) => localStorage.removeItem(key))
+
+      Object.entries(parsed.entries).forEach(([key, value]) => {
+        localStorage.setItem(key, value)
+      })
+
+      toast.success('Backup imported', {
+        description: 'Reloading local data...',
+      })
+
+      window.location.reload()
+    } catch (err: any) {
+      console.error('Error importing backup', err)
+      toast.error('Failed to import backup', {
+        description: err?.message || 'Please try again.',
+      })
+    }
   }
 
   const redirectToLogin = (provider = AUTH_PROVIDER) => {
