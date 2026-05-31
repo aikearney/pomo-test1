@@ -345,7 +345,7 @@ export function TaskItem({
   const resizeTextarea = (element: HTMLTextAreaElement | null) => {
     if (!element) return
     element.style.height = 'auto'
-    element.style.height = `${Math.min(element.scrollHeight, 144)}px`
+    element.style.height = `${Math.min(element.scrollHeight, 192)}px`
   }
 
   useEffect(() => {
@@ -706,6 +706,7 @@ export function TaskItem({
                 ref={subtaskInputRef}
                 id="subtask-name"
                 placeholder="Subtask name"
+                rows={2}
                 value={subtaskName}
                 onChange={(e) => setSubtaskName(e.target.value)}
                 onKeyDown={(e) => {
@@ -719,7 +720,7 @@ export function TaskItem({
                     setIsAddingSubtask(false)
                   }
                 }}
-                className="min-h-[2rem] max-h-36 resize-none overflow-y-auto text-xs leading-tight flex-1 min-w-0"
+                className="min-h-[2.5rem] max-h-48 resize-none overflow-y-auto text-sm leading-snug flex-1 min-w-0"
                 autoFocus
               />
               <Input

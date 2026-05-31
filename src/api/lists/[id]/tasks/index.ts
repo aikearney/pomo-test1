@@ -44,16 +44,32 @@ module.exports = async function (context: any, req: any) {
       return;
     }
 
+    const taskIterations = Number(body.iterations);
+    const completedIterations = Number(body.completedIterations);
+    const subtasks = Array.isArray(body.subtasks)
+      ? body.subtasks.map((subtask: any) => ({
+          ...subtask,
+          iterations: Number.isFinite(Number(subtask?.iterations)) && Number(subtask?.iterations) > 0
+            ? Math.round(Number(subtask?.iterations))
+            : 1,
+          completed: Boolean(subtask?.completed),
+        }))
+      : [];
+
     const newTask = {
       id: uuid(),
       userId,
       listId,
       name: body.name,
-      iterations: body.iterations ?? 1,
-      subtasks: body.subtasks ?? [],
-      completed: false,
-      collapsed: false,
+      iterations: Number.isFinite(taskIterations) && taskIterations > 0 ? Math.round(taskIterations) : 1,
+      subtasks,
+      completed: Boolean(body.completed),
+      completedIterations: Number.isFinite(completedIterations) && completedIterations >= 0
+        ? Math.round(completedIterations)
+        : 0,
+      collapsed: Boolean(body.collapsed),
       isHighPriority: body.isHighPriority ?? false,
+      recurrence: body.recurrence ?? undefined,
       createdAt: Date.now(),
     };
 
