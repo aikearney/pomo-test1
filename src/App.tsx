@@ -95,7 +95,7 @@ type LocalStorageBackup = {
 }
 
 type LocalStorageImportOptions = {
-  mode: 'overwrite-current' | 'new-list' | 'restore-all'
+  mode: 'overwrite-current' | 'new-list' | 'restore-all-replace' | 'restore-all-merge'
   newListName?: string
 }
 
@@ -364,25 +364,47 @@ function App() {
         throw new Error('Invalid backup file')
       }
 
-      if (options.mode === 'restore-all') {
-        // Clear existing pomodoro-* and special keys before restoring
+      if (options.mode === 'restore-all-replace') {
         const keysToRemove: string[] = []
         for (let i = 0; i < localStorage.length; i++) {
           const key = localStorage.key(i)
           if (key && isLocalStorageBackupKey(key)) keysToRemove.push(key)
         }
         keysToRemove.forEach((k) => localStorage.removeItem(k))
-
-        // Write every entry from the backup
         for (const [key, value] of Object.entries(parsed.entries)) {
           localStorage.setItem(key, value)
         }
-
         const listManifest = parseImportedTaskLists(parsed.entries[LOCAL_LISTS_KEY])
         const listCount = listManifest.length || 1
-        toast.success('All lists restored', {
+        toast.success('All lists replaced', {
           description: `Restored ${listCount} list${listCount !== 1 ? 's' : ''} from backup. Reloading...`,
         })
+        window.location.reload()
+        return
+      }
+
+      if (options.mode === 'restore-all-merge') {
+        const backupLists = parseImportedTaskLists(parsed.entries[LOCAL_LISTS_KEY])
+        const existingLists = readLocalLists()
+        const existingIds = new Set(existingLists.map((l) => l.id))
+        const newLists = backupLists.filter((l) => !existingIds.has(l.id))
+        for (const list of newLists) {
+          const tasksKey =
+            list.id === 'personal' ? 'personalTasks' : `pomodoro-local-tasks:${list.id}`
+          const backupTasksRaw = parsed.entries[tasksKey]
+          if (backupTasksRaw !== undefined) localStorage.setItem(tasksKey, backupTasksRaw)
+        }
+        if (!existingIds.has('personal') && parsed.entries.personalTasks !== undefined) {
+          localStorage.setItem('personalTasks', parsed.entries.personalTasks)
+        }
+        writeLocalLists([...existingLists, ...newLists])
+        const added = newLists.length
+        const skipped = backupLists.length - added
+        const parts = [
+          added > 0 ? `Added ${added} new list${added !== 1 ? 's' : ''}` : null,
+          skipped > 0 ? `${skipped} already present — kept unchanged` : null,
+        ].filter(Boolean).join('. ')
+        toast.success('Lists merged', { description: parts + '. Reloading...' })
         window.location.reload()
         return
       }
@@ -554,9 +576,16 @@ function App() {
         setCurrentTaskListId(exists ? savedListId : lists[0].id)
       } catch (err: any) {
         console.error('Error loading lists', err)
-        toast.error('Failed to load lists', {
-          description: err?.message || 'Please try again.',
-        })
+        if (cancelled) return
+        // API unavailable or unauthenticated locally — fall back to anonymous mode
+        setIsAnonymousMode(true)
+        const localLists = readLocalLists()
+        const personalList: TaskList = { id: 'personal', name: 'Personal', createdAt: 0 }
+        const mergedLists = [personalList, ...localLists]
+        setTaskLists(mergedLists)
+        const savedListId = localStorage.getItem('pomodoro-current-list-id') || null
+        const exists = mergedLists.some((l) => l.id === savedListId)
+        setCurrentTaskListId(exists ? savedListId : mergedLists[0].id)
       } finally {
         if (!cancelled) setIsLoadingLists(false)
       }

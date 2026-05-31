@@ -28,7 +28,7 @@ import { CaretDown, Plus, Trash, PencilSimple, Check, X, Copy, ChartBar, Image, 
 import { toast } from 'sonner'
 
 type ImportLocalDataOptions = {
-  mode: 'overwrite-current' | 'new-list' | 'restore-all'
+  mode: 'overwrite-current' | 'new-list' | 'restore-all-replace' | 'restore-all-merge'
   newListName?: string
 }
 
@@ -243,12 +243,15 @@ export function TaskListSelector({
     resetImportFlow()
   }
 
-  const handleRestoreAll = () => {
-    if (!pendingImportFile) {
-      resetImportFlow()
-      return
-    }
-    onImportLocalData?.(pendingImportFile, { mode: 'restore-all' })
+  const handleRestoreAllReplace = () => {
+    if (!pendingImportFile) { resetImportFlow(); return }
+    onImportLocalData?.(pendingImportFile, { mode: 'restore-all-replace' })
+    resetImportFlow()
+  }
+
+  const handleRestoreAllMerge = () => {
+    if (!pendingImportFile) { resetImportFlow(); return }
+    onImportLocalData?.(pendingImportFile, { mode: 'restore-all-merge' })
     resetImportFlow()
   }
 
@@ -668,31 +671,40 @@ export function TaskListSelector({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Import local backup</AlertDialogTitle>
-            <AlertDialogDescription>
-              Choose how to import this backup. <strong>Restore all lists</strong> rebuilds every list with its original name. Or import just the tasks into one list.
-            </AlertDialogDescription>
+            <AlertDialogDescription>How would you like to import this backup?</AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="flex-col gap-2 sm:flex-col">
-            <AlertDialogAction
-              onClick={handleRestoreAll}
+          <div className="space-y-2 py-2">
+            <button
+              className="w-full text-left rounded-md border px-4 py-3 hover:bg-accent transition-colors"
+              onClick={handleRestoreAllMerge}
             >
-              Restore all lists
-            </AlertDialogAction>
-            <div className="flex gap-2 w-full justify-end">
-              <AlertDialogCancel onClick={resetImportFlow}>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                className="bg-secondary text-secondary-foreground hover:bg-secondary/90"
-                onClick={handleImportIntoNewList}
-              >
-                Import to new list
-              </AlertDialogAction>
-              <AlertDialogAction
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                onClick={handleImportOverwriteCurrent}
-              >
-                Overwrite current
-              </AlertDialogAction>
-            </div>
+              <div className="font-medium">Merge with existing lists</div>
+              <div className="text-sm text-muted-foreground">Adds lists from the backup. Lists you already have are kept as-is.</div>
+            </button>
+            <button
+              className="w-full text-left rounded-md border px-4 py-3 hover:bg-accent transition-colors"
+              onClick={handleRestoreAllReplace}
+            >
+              <div className="font-medium">Replace all lists</div>
+              <div className="text-sm text-muted-foreground">Removes your current lists and restores everything from the backup.</div>
+            </button>
+            <button
+              className="w-full text-left rounded-md border px-4 py-3 hover:bg-accent transition-colors"
+              onClick={handleImportIntoNewList}
+            >
+              <div className="font-medium">Import as new list</div>
+              <div className="text-sm text-muted-foreground">Imports the first list from the backup as a new list.</div>
+            </button>
+            <button
+              className="w-full text-left rounded-md border border-destructive/40 px-4 py-3 hover:bg-destructive/10 transition-colors"
+              onClick={handleImportOverwriteCurrent}
+            >
+              <div className="font-medium text-destructive">Overwrite current list</div>
+              <div className="text-sm text-muted-foreground">Replaces tasks in your current list with tasks from the backup.</div>
+            </button>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={resetImportFlow}>Cancel</AlertDialogCancel>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
