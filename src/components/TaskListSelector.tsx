@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Input } from '@/components/ui/input'
 import { Slider } from '@/components/ui/slider'
-import { CaretDown, Plus, Trash, PencilSimple, Check, X, Copy, ChartBar, Image, UploadSimple, DownloadSimple, Palette } from '@phosphor-icons/react'
+import { CaretDown, Plus, Trash, PencilSimple, Check, X, Copy, ChartBar, Image, UploadSimple, DownloadSimple, Palette, FileArchive, FolderSimple } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 
 type ImportLocalDataOptions = {
@@ -46,6 +46,9 @@ interface TaskListSelectorProps {
   onRenameTaskList: (taskListId: string, newName: string) => void
   onDeleteTaskList: (taskListId: string) => void
   onDuplicateTaskList: (taskListId: string) => void
+  onArchiveTaskList?: (taskListId: string) => void
+  onUnarchiveTaskList?: (taskListId: string) => void
+  onUncompleteAllTasksInList?: (taskListId: string) => void
   onShowStatistics?: () => void
   backgroundImage: string | null
   backgroundOpacity: number
@@ -137,6 +140,9 @@ export function TaskListSelector({
   onRenameTaskList,
   onDeleteTaskList,
   onDuplicateTaskList,
+  onArchiveTaskList,
+  onUnarchiveTaskList,
+  onUncompleteAllTasksInList,
   onShowStatistics,
   backgroundImage,
   backgroundOpacity,
@@ -162,12 +168,15 @@ export function TaskListSelector({
   const [showExportNameDialog, setShowExportNameDialog] = useState(false)
   const [exportFileName, setExportFileName] = useState('')
   const [isOpen, setIsOpen] = useState(false)
+  const [showArchivedLists, setShowArchivedLists] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const editInputRef = useRef<HTMLInputElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const importInputRef = useRef<HTMLInputElement>(null)
 
   const currentTaskList = taskLists.find(list => list.id === currentTaskListId)
+  const activeLists = taskLists.filter(list => !list.archived)
+  const archivedLists = taskLists.filter(list => list.archived)
 
   const handleCreate = () => {
     if (!newListName.trim()) {
@@ -344,8 +353,8 @@ export function TaskListSelector({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-64">
-          <DropdownMenuLabel className="font-bold underline">Task Lists</DropdownMenuLabel>
-          {taskLists.map(list => (
+          <DropdownMenuLabel className="font-bold underline">Active Lists</DropdownMenuLabel>
+          {activeLists.map(list => (
             <DropdownMenuItem
               key={list.id}
               onClick={() => {
@@ -416,7 +425,19 @@ export function TaskListSelector({
                     >
                       <PencilSimple size={16} />
                     </Button>
-                    {taskLists.length > 1 && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 w-8 p-0"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onArchiveTaskList?.(list.id)
+                      }}
+                      title="Archive list"
+                    >
+                      <FileArchive size={16} />
+                    </Button>
+                    {activeLists.length > 1 && (
                       <Button
                         size="sm"
                         variant="ghost"
@@ -435,6 +456,48 @@ export function TaskListSelector({
               )}
             </DropdownMenuItem>
           ))}
+          {archivedLists.length > 0 && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="font-bold underline text-xs cursor-pointer" onClick={() => setShowArchivedLists(!showArchivedLists)}>
+                Archived Lists ({archivedLists.length})
+              </DropdownMenuLabel>
+              {showArchivedLists && archivedLists.map(list => (
+                <DropdownMenuItem key={list.id} className="flex items-start justify-between gap-2 p-2">
+                  <div className="flex-1">
+                    <div className="font-medium text-sm">{list.name}</div>
+                    <div className="flex items-center gap-1 mt-1">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 text-xs"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onUncompleteAllTasksInList?.(list.id)
+                        }}
+                        title="Uncomplete all tasks in this list"
+                      >
+                        Reset Tasks
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 text-xs gap-1"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onUnarchiveTaskList?.(list.id)
+                        }}
+                        title="Restore this list"
+                      >
+                        <FolderSimple size={14} />
+                        Restore
+                      </Button>
+                    </div>
+                  </div>
+                </DropdownMenuItem>
+              ))}
+            </>
+          )}
           <DropdownMenuSeparator />
           {(onExportLocalData || onImportLocalData) && (
             <>

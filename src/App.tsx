@@ -2327,6 +2327,110 @@ function App() {
     }
   }
 
+  const archiveTaskList = async (listId: string) => {
+    if (isAnonymousMode || isLocalListId(listId)) {
+      setTaskLists((currentLists) => {
+        const nextLists = (currentLists || []).map((list) =>
+          list.id === listId ? { ...list, archived: true } : list
+        )
+        writeLocalLists(nextLists.filter((list) => list.id !== 'personal'))
+        return nextLists
+      })
+      toast.success('List archived')
+      return
+    }
+
+    try {
+      const updated = await apiFetch<TaskList>(
+        `/api/lists/${encodeURIComponent(listId)}`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ archived: true }),
+        }
+      )
+      setTaskLists((currentLists) =>
+        (currentLists || []).map((list) =>
+          list.id === listId ? updated : list
+        )
+      )
+      toast.success('List archived')
+    } catch (err: any) {
+      console.error('Error archiving list', err)
+      toast.error('Failed to archive list', {
+        description: err?.message || 'Please try again.',
+      })
+    }
+  }
+
+  const unarchiveTaskList = async (listId: string) => {
+    if (isAnonymousMode || isLocalListId(listId)) {
+      setTaskLists((currentLists) => {
+        const nextLists = (currentLists || []).map((list) =>
+          list.id === listId ? { ...list, archived: false } : list
+        )
+        writeLocalLists(nextLists.filter((list) => list.id !== 'personal'))
+        return nextLists
+      })
+      toast.success('List unarchived')
+      return
+    }
+
+    try {
+      const updated = await apiFetch<TaskList>(
+        `/api/lists/${encodeURIComponent(listId)}`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ archived: false }),
+        }
+      )
+      setTaskLists((currentLists) =>
+        (currentLists || []).map((list) =>
+          list.id === listId ? updated : list
+        )
+      )
+      toast.success('List unarchived')
+    } catch (err: any) {
+      console.error('Error unarchiving list', err)
+      toast.error('Failed to unarchive list', {
+        description: err?.message || 'Please try again.',
+      })
+    }
+  }
+
+  const uncompleteAllTasksInList = (listId: string) => {
+    if (listId === currentTaskListId) {
+      // If it's the current list, update tasks
+      setTasks((currentTasks) => {
+        const updated = (currentTasks || []).map((task) => ({
+          ...task,
+          completed: false,
+          completedIterations: 0,
+          subtasks: (task.subtasks || []).map((subtask) => ({
+            ...subtask,
+            completed: false,
+          })),
+        }))
+        persistTasksForList(listId, updated)
+        return updated
+      })
+    } else {
+      // If it's an archived list, update from localStorage
+      const tasksRaw = localStorage.getItem(getLocalTasksStorageKey(listId))
+      const currentTasks = tasksRaw ? (JSON.parse(tasksRaw) as Task[]) : []
+      const updated = currentTasks.map((task) => ({
+        ...task,
+        completed: false,
+        completedIterations: 0,
+        subtasks: (task.subtasks || []).map((subtask) => ({
+          ...subtask,
+          completed: false,
+        })),
+      }))
+      persistTasksForList(listId, updated)
+    }
+    toast.success('All tasks uncompleted')
+  }
+
   // --- UI helpers ---
 
   const toggleAllTasksCollapse = () => {
@@ -2585,6 +2689,9 @@ function App() {
               onRenameTaskList={renameTaskList}
               onDeleteTaskList={deleteTaskList}
               onDuplicateTaskList={duplicateTaskList}
+              onArchiveTaskList={archiveTaskList}
+              onUnarchiveTaskList={unarchiveTaskList}
+              onUncompleteAllTasksInList={uncompleteAllTasksInList}
               onShowStatistics={() => setShowStatistics(true)}
               backgroundImage={backgroundImage || null}
               backgroundOpacity={backgroundOpacity || 0.8}

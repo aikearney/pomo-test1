@@ -2,6 +2,7 @@ export interface TaskList {
   id: string
   name: string
   createdAt: number
+  archived?: boolean
 }
 
 export interface Subtask {
