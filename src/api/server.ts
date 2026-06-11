@@ -18,6 +18,47 @@ function getAuthenticatedUserId(req: Request): string | undefined {
 
 const USER_ID_FILTER = "(c.userId = @userId OR c.userid = @userId)";
 
+// Safe auth endpoint - proxies /.auth/me but strips sensitive tokens
+app.get("/api/auth/me", asyncHandler(async (req, res) => {
+  try {
+    const response = await fetch("http://localhost:7071/.auth/me", {
+      headers: {
+        "x-ms-client-principal": req.headers["x-ms-client-principal"] as string,
+        "x-ms-client-principal-id": req.headers["x-ms-client-principal-id"] as string,
+        "x-ms-client-principal-name": req.headers["x-ms-client-principal-name"] as string,
+      },
+    });
+
+    if (!response.ok) {
+      res.status(response.status).json({ error: "Unauthorized" });
+      return;
+    }
+
+    const authInfo = await response.json();
+    const principal = Array.isArray(authInfo) ? authInfo[0] : undefined;
+
+    if (!principal) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    // Strip sensitive tokens - return only safe claims
+    const safeResponse = [
+      {
+        user_id: principal.user_id,
+        user_claims: principal.user_claims || [],
+        provider_name: principal.provider_name,
+        // Do NOT include: access_token, refresh_token, expires_on
+      },
+    ];
+
+    res.status(200).json(safeResponse);
+  } catch (error: any) {
+    console.error("Auth proxy error:", error.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}));
+
 // Wrapper to catch Cosmos connection errors gracefully
 function asyncHandler(fn: (req: Request, res: Response, next?: NextFunction) => Promise<void>): RequestHandler {
   return (req: Request, res: Response, next?: NextFunction) => {

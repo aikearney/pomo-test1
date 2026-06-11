@@ -742,7 +742,7 @@ function App() {
       const timeoutId = window.setTimeout(() => controller.abort(), AUTH_ME_TIMEOUT_MS)
 
       try {
-        const res = await fetch('/.auth/me', {
+        const res = await fetch('/api/auth/me', {
           credentials: 'include',
           signal: controller.signal,
         })
@@ -772,22 +772,41 @@ function App() {
           ? principal.user_claims
           : []
 
+        const findClaimValue = (types: string[]) => {
+          const wanted = new Set(types.map((type) => type.toLowerCase()))
+          const match = claims.find((claim: any) =>
+            wanted.has(String(claim?.typ || '').toLowerCase())
+          )
+          const value = match?.val
+          return typeof value === 'string' && value.trim().length > 0
+            ? value.trim()
+            : null
+        }
+
         const nameClaim =
-          claims.find((claim: any) => claim?.typ === 'name')?.val ||
-          claims.find((claim: any) => claim?.typ === 'preferred_username')?.val ||
-          claims.find((claim: any) => String(claim?.typ || '').includes('/name'))?.val ||
+          findClaimValue([
+            'name',
+            'preferred_username',
+            'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name',
+          ]) ||
+          findClaimValue([
+            'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname',
+          ]) ||
           null
 
         if (!cancelled) {
           const userId =
             typeof principal?.user_id === 'string' ? principal.user_id : null
-          
+          const displayName =
+            nameClaim ||
+            (userId && /[A-Za-z]/.test(userId) ? userId : null)
+
           if (userId) {
             // User is authenticated - save to cache
             setIsAuthenticated(true)
             setAuthUserId(userId)
-            setAuthDisplayName(nameClaim)
-            saveAuthCache(userId, nameClaim)
+            setAuthDisplayName(displayName)
+            saveAuthCache(userId, displayName)
           } else {
             // User not authenticated - clear cache
             setIsAuthenticated(false)
