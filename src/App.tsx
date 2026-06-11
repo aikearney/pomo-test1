@@ -1353,6 +1353,36 @@ function App() {
     }
   }, [timerState.isRunning, timerState.needsAcknowledgment, tasks, isMuted])
 
+  // Recalculate timer elapsed time when app comes back from background
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && timerState.isRunning && !timerState.needsAcknowledgment) {
+        // App came back into focus - recalculate elapsed time
+        const persisted = readPersistedTimerRuntime()
+        if (persisted) {
+          const elapsedSeconds = Math.max(
+            0,
+            Math.floor((Date.now() - persisted.persistedAt) / 1000)
+          )
+          const adjustedRemaining = Math.max(
+            0,
+            persisted.timerState.remainingSeconds - elapsedSeconds
+          )
+
+          setTimerState((prev) => ({
+            ...prev,
+            remainingSeconds: adjustedRemaining,
+            isRunning: adjustedRemaining > 0,
+            needsAcknowledgment: adjustedRemaining === 0,
+          }))
+        }
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [timerState.isRunning, timerState.needsAcknowledgment])
+
   useEffect(() => {
     const now = new Date()
     const lastResetDate = localStorage.getItem('pomodoro-last-reset-date')
