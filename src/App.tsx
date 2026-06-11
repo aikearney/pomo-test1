@@ -178,11 +178,19 @@ function parseImportedTasks(raw: string | undefined): Task[] {
 }
 
 const TIMER_RUNTIME_STORAGE_KEY = 'pomodoro-timer-runtime'
+const AUTH_CACHE_STORAGE_KEY = 'pomodoro-auth-cache'
+const AUTH_CACHE_EXPIRY_MS = 30 * 24 * 60 * 60 * 1000 // 30 days
 
 type PersistedTimerRuntime = {
   timerState: TimerState
   currentTaskListIdForTimer: string | null
   persistedAt: number
+}
+
+type AuthCache = {
+  userId: string
+  displayName: string | null
+  cachedAt: number
 }
 
 function createDefaultTimerState(): TimerState {
@@ -282,6 +290,45 @@ function getRestoredTimerRuntime(): {
     timerState: restoredTimerState,
     currentTaskListIdForTimer: persisted.currentTaskListIdForTimer,
   }
+}
+
+function saveAuthCache(userId: string, displayName: string | null): void {
+  const cache: AuthCache = {
+    userId,
+    displayName,
+    cachedAt: Date.now(),
+  }
+  localStorage.setItem(AUTH_CACHE_STORAGE_KEY, JSON.stringify(cache))
+}
+
+function loadAuthCache(): AuthCache | null {
+  try {
+    const raw = localStorage.getItem(AUTH_CACHE_STORAGE_KEY)
+    if (!raw) return null
+    
+    const parsed = JSON.parse(raw) as Partial<AuthCache>
+    if (
+      typeof parsed.userId !== 'string' ||
+      (parsed.displayName !== null && typeof parsed.displayName !== 'string') ||
+      typeof parsed.cachedAt !== 'number'
+    ) {
+      return null
+    }
+
+    // Check if cache is still valid (not expired)
+    if (Date.now() - parsed.cachedAt > AUTH_CACHE_EXPIRY_MS) {
+      clearAuthCache()
+      return null
+    }
+
+    return parsed as AuthCache
+  } catch {
+    return null
+  }
+}
+
+function clearAuthCache(): void {
+  localStorage.removeItem(AUTH_CACHE_STORAGE_KEY)
 }
 
 function App() {
@@ -700,10 +747,21 @@ function App() {
           signal: controller.signal,
         })
         if (!res.ok) {
+          // Server auth check failed - try localStorage fallback
           if (!cancelled) {
-            setIsAuthenticated(false)
-            setAuthUserId(null)
-            setAuthDisplayName(null)
+            const cachedAuth = loadAuthCache()
+            if (cachedAuth) {
+              // Restore from cache
+              setIsAuthenticated(true)
+              setAuthUserId(cachedAuth.userId)
+              setAuthDisplayName(cachedAuth.displayName)
+            } else {
+              // No valid cache - user not logged in
+              setIsAuthenticated(false)
+              setAuthUserId(null)
+              setAuthDisplayName(null)
+              clearAuthCache()
+            }
           }
           return
         }
@@ -723,15 +781,37 @@ function App() {
         if (!cancelled) {
           const userId =
             typeof principal?.user_id === 'string' ? principal.user_id : null
-          setIsAuthenticated(Boolean(userId))
-          setAuthUserId(userId)
-          setAuthDisplayName(nameClaim)
+          
+          if (userId) {
+            // User is authenticated - save to cache
+            setIsAuthenticated(true)
+            setAuthUserId(userId)
+            setAuthDisplayName(nameClaim)
+            saveAuthCache(userId, nameClaim)
+          } else {
+            // User not authenticated - clear cache
+            setIsAuthenticated(false)
+            setAuthUserId(null)
+            setAuthDisplayName(null)
+            clearAuthCache()
+          }
         }
       } catch {
+        // Network error or timeout - try localStorage fallback
         if (!cancelled) {
-          setIsAuthenticated(false)
-          setAuthUserId(null)
-          setAuthDisplayName(null)
+          const cachedAuth = loadAuthCache()
+          if (cachedAuth) {
+            // Restore from cache during offline/error
+            setIsAuthenticated(true)
+            setAuthUserId(cachedAuth.userId)
+            setAuthDisplayName(cachedAuth.displayName)
+          } else {
+            // No valid cache
+            setIsAuthenticated(false)
+            setAuthUserId(null)
+            setAuthDisplayName(null)
+            clearAuthCache()
+          }
         }
       } finally {
         window.clearTimeout(timeoutId)
