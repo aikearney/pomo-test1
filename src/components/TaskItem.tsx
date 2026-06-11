@@ -45,6 +45,7 @@ interface TaskItemProps {
   canMoveDown?: boolean
   otherTasks?: Task[]
   onMoveSubtaskToTask?: (subtaskId: string, targetTaskId: string) => void
+  onCopySubtaskToTask?: (subtaskId: string, targetTaskId: string) => void
 }
 
 interface SubtaskItemProps {
@@ -59,6 +60,7 @@ interface SubtaskItemProps {
   canMoveDown?: boolean
   onMoveToTask?: () => void
   canMoveToAnotherTask?: boolean
+  onCopyToTask?: () => void
 }
 
 function SubtaskItem({
@@ -72,7 +74,8 @@ function SubtaskItem({
   canMoveUp = false,
   canMoveDown = false,
   onMoveToTask,
-  canMoveToAnotherTask = false
+  canMoveToAnotherTask = false,
+  onCopyToTask
 }: SubtaskItemProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [editName, setEditName] = useState(subtask.name)
@@ -294,6 +297,9 @@ function SubtaskItem({
                     <DropdownMenuItem onClick={onMoveToTask}>
                       Move to task...
                     </DropdownMenuItem>
+                    <DropdownMenuItem onClick={onCopyToTask}>
+                      Copy to task...
+                    </DropdownMenuItem>
                   </>
                 )}
                 <DropdownMenuSeparator />
@@ -330,7 +336,8 @@ export function TaskItem({
   canMoveUp = false,
   canMoveDown = false,
   otherTasks = [],
-  onMoveSubtaskToTask
+  onMoveSubtaskToTask,
+  onCopySubtaskToTask
 }: TaskItemProps) {
   const [isAddingSubtask, setIsAddingSubtask] = useState(false)
   const [subtaskName, setSubtaskName] = useState('')
@@ -340,6 +347,7 @@ export function TaskItem({
   const [editIterations, setEditIterations] = useState(task.iterations.toString())
   const [showRecurrenceDialog, setShowRecurrenceDialog] = useState(false)
   const [subtaskToMove, setSubtaskToMove] = useState<string | null>(null)
+  const [subtaskToCopy, setSubtaskToCopy] = useState<string | null>(null)
   const subtaskInputRef = useRef<HTMLTextAreaElement>(null)
 
   const resizeTextarea = (element: HTMLTextAreaElement | null) => {
@@ -696,6 +704,7 @@ export function TaskItem({
                   canMoveDown={subtaskIndex < task.subtasks.length - 1}
                   onMoveToTask={() => setSubtaskToMove(subtask.id)}
                   canMoveToAnotherTask={true}
+                  onCopyToTask={() => setSubtaskToCopy(subtask.id)}
                 />
                 )
               })}
@@ -784,6 +793,7 @@ export function TaskItem({
                   canMoveDown={subtaskIndex < task.subtasks.length - 1}
                   onMoveToTask={() => setSubtaskToMove(subtask.id)}
                   canMoveToAnotherTask={true}
+                  onCopyToTask={() => setSubtaskToCopy(subtask.id)}
                 />
                 )
               })}
@@ -930,6 +940,41 @@ export function TaskItem({
                         onMoveSubtaskToTask(subtaskToMove, t.id)
                       }
                       setSubtaskToMove(null)
+                    }}
+                  >
+                    {t.name}
+                  </Button>
+                ))
+              )}
+            </div>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+
+      {subtaskToCopy && (
+        <AlertDialog open={!!subtaskToCopy} onOpenChange={(open) => !open && setSubtaskToCopy(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Copy subtask to task</AlertDialogTitle>
+              <AlertDialogDescription>
+                Select a task to copy this subtask to:
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="max-h-64 overflow-y-auto space-y-2">
+              {otherTasks.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4">No other tasks available</p>
+              ) : (
+                otherTasks.map((t) => (
+                  <Button
+                    key={t.id}
+                    variant="outline"
+                    className="w-full justify-start text-left"
+                    onClick={() => {
+                      if (onCopySubtaskToTask) {
+                        onCopySubtaskToTask(subtaskToCopy, t.id)
+                      }
+                      setSubtaskToCopy(null)
                     }}
                   >
                     {t.name}

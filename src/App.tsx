@@ -1896,6 +1896,130 @@ function App() {
     }
   }
 
+  const copySubtaskToTask = async (subtaskId: string, targetTaskId: string) => {
+    const sourceTask = (tasks || []).find((t) => t.subtasks.some((st) => st.id === subtaskId))
+    const targetTask = (tasks || []).find((t) => t.id === targetTaskId)
+    
+    if (!sourceTask || !targetTask) {
+      toast.error('Cannot copy subtask', {
+        description: 'Invalid source or target task',
+      })
+      return
+    }
+
+    const subtask = sourceTask.subtasks.find((st) => st.id === subtaskId)
+    if (!subtask) {
+      toast.error('Subtask not found')
+      return
+    }
+
+    // Create a copy with new ID
+    const copiedSubtask = {
+      ...subtask,
+      id: `subtask-${Date.now()}`,
+    }
+
+    const updatedTargetTask = {
+      ...targetTask,
+      subtasks: [...targetTask.subtasks, copiedSubtask],
+    }
+
+    const nextTasks = (tasks || []).map((t) => {
+      if (t.id === targetTask.id) return updatedTargetTask
+      return t
+    })
+
+    // Optimistic update
+    setTasks(nextTasks)
+    if ((isAnonymousMode || isLocalListId(currentTaskListId)) && currentTaskListId) {
+      persistTasksForList(currentTaskListId, nextTasks)
+    }
+    toast.success('Subtask copied', {
+      description: `Copied to "${targetTask.name}"`,
+    })
+
+    if (isAnonymousMode || isLocalListId(currentTaskListId)) {
+      return
+    }
+
+    try {
+      await apiFetch(`/api/tasks/${encodeURIComponent(targetTask.id)}`, {
+        method: 'PATCH',
+        body: JSON.stringify(updatedTargetTask),
+      })
+    } catch (err: any) {
+      console.error('Error copying subtask', err)
+      toast.error('Failed to copy subtask on server', {
+        description: err?.message || 'It may not persist on reload.',
+      })
+    }
+  }
+
+  const moveSubtaskToTask = async (subtaskId: string, targetTaskId: string) => {
+    const sourceTask = (tasks || []).find((t) => t.subtasks.some((st) => st.id === subtaskId))
+    const targetTask = (tasks || []).find((t) => t.id === targetTaskId)
+    
+    if (!sourceTask || !targetTask || sourceTask.id === targetTaskId) {
+      toast.error('Cannot move subtask', {
+        description: 'Invalid source or target task',
+      })
+      return
+    }
+
+    const subtask = sourceTask.subtasks.find((st) => st.id === subtaskId)
+    if (!subtask) {
+      toast.error('Subtask not found')
+      return
+    }
+
+    // Remove from source, add to target
+    const updatedSourceTask = {
+      ...sourceTask,
+      subtasks: sourceTask.subtasks.filter((st) => st.id !== subtaskId),
+    }
+    const updatedTargetTask = {
+      ...targetTask,
+      subtasks: [...targetTask.subtasks, subtask],
+    }
+
+    const nextTasks = (tasks || []).map((t) => {
+      if (t.id === sourceTask.id) return updatedSourceTask
+      if (t.id === targetTask.id) return updatedTargetTask
+      return t
+    })
+
+    // Optimistic update
+    setTasks(nextTasks)
+    if ((isAnonymousMode || isLocalListId(currentTaskListId)) && currentTaskListId) {
+      persistTasksForList(currentTaskListId, nextTasks)
+    }
+    toast.success('Subtask moved', {
+      description: `Moved to "${targetTask.name}"`,
+    })
+
+    if (isAnonymousMode || isLocalListId(currentTaskListId)) {
+      return
+    }
+
+    try {
+      await Promise.all([
+        apiFetch(`/api/tasks/${encodeURIComponent(sourceTask.id)}`, {
+          method: 'PATCH',
+          body: JSON.stringify(updatedSourceTask),
+        }),
+        apiFetch(`/api/tasks/${encodeURIComponent(targetTask.id)}`, {
+          method: 'PATCH',
+          body: JSON.stringify(updatedTargetTask),
+        }),
+      ])
+    } catch (err: any) {
+      console.error('Error moving subtask', err)
+      toast.error('Failed to move subtask on server', {
+        description: err?.message || 'It may revert on reload.',
+      })
+    }
+  }
+
   const bulkDeleteCompletedTasks = async () => {
     const completedTasks = (tasks || []).filter((t) => t.completed)
     if (completedTasks.length === 0) {
@@ -2651,6 +2775,9 @@ function App() {
                                 onMoveDown={() => handleTouchReorder(task.id, 'down')}
                                 canMoveUp={incompleteTasks.findIndex((t) => t.id === task.id) > 0}
                                 canMoveDown={incompleteTasks.findIndex((t) => t.id === task.id) < incompleteTasks.length - 1}
+                                otherTasks={(tasks || []).filter((t) => t.id !== task.id)}
+                                onMoveSubtaskToTask={moveSubtaskToTask}
+                                onCopySubtaskToTask={copySubtaskToTask}
                               />
                             </motion.div>
                           ))}
@@ -2724,6 +2851,9 @@ function App() {
                                       onMoveDown={() => handleTouchReorder(task.id, 'down')}
                                       canMoveUp={completedTasks.findIndex((t) => t.id === task.id) > 0}
                                       canMoveDown={completedTasks.findIndex((t) => t.id === task.id) < completedTasks.length - 1}
+                                      otherTasks={(tasks || []).filter((t) => t.id !== task.id)}
+                                      onMoveSubtaskToTask={moveSubtaskToTask}
+                                      onCopySubtaskToTask={copySubtaskToTask}
                                     />
                                   </motion.div>
                                 ))}
