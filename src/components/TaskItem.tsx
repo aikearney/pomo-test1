@@ -384,6 +384,8 @@ export function TaskItem({
     
     const isUnticking = subtask?.completed === true
     const shouldUntickParent = isUnticking && task.completed
+    const allSubtasksComplete = updatedSubtasks.every(st => st.completed)
+    const shouldCompleteParent = !isUnticking && allSubtasksComplete && !task.completed
     
     const incompleteSubtasks = updatedSubtasks.filter(st => !st.completed)
     const completedSubtasks = updatedSubtasks.filter(st => st.completed)
@@ -392,7 +394,7 @@ export function TaskItem({
     onUpdate({ 
       ...task, 
       subtasks: reorderedSubtasks,
-      completed: shouldUntickParent ? false : task.completed
+      completed: shouldCompleteParent ? true : shouldUntickParent ? false : task.completed
     })
   }
 
@@ -590,7 +592,7 @@ export function TaskItem({
         <Checkbox
           checked={task.completed}
           onCheckedChange={toggleComplete}
-          className="mt-1"
+          className="mt-1 relative z-10 cursor-pointer"
         />
         
         <div className="flex-1 min-w-0">
