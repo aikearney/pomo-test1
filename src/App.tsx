@@ -716,13 +716,22 @@ function App() {
     }
   }
 
+  const getSafeAuthRedirectPath = () => {
+    const currentPath = `${window.location.pathname}${window.location.search}`
+    // Never redirect back into Easy Auth endpoints; always return to app route.
+    if (window.location.pathname.startsWith('/.auth/')) {
+      return '/'
+    }
+    return currentPath || '/'
+  }
+
   const redirectToLogin = (provider = AUTH_PROVIDER) => {
-    const redirect = encodeURIComponent(`${window.location.pathname}${window.location.search}`)
+    const redirect = encodeURIComponent(getSafeAuthRedirectPath())
     window.location.assign(`/.auth/login/${provider}?post_login_redirect_uri=${redirect}`)
   }
 
   const redirectToLogout = () => {
-    const redirect = encodeURIComponent(`${window.location.pathname}${window.location.search}`)
+    const redirect = encodeURIComponent(getSafeAuthRedirectPath())
     window.location.assign(`/.auth/logout?post_logout_redirect_uri=${redirect}`)
   }
 

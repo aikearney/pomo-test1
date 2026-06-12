@@ -61,7 +61,14 @@ function parseClientPrincipal(encodedPrincipal: string): any | undefined {
   try {
     return JSON.parse(Buffer.from(trimmed, "base64").toString("utf8"));
   } catch {
-    return undefined;
+    // Handle base64url payloads that may be emitted by some Easy Auth environments.
+    try {
+      const normalized = trimmed.replace(/-/g, "+").replace(/_/g, "/");
+      const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+      return JSON.parse(Buffer.from(padded, "base64").toString("utf8"));
+    } catch {
+      return undefined;
+    }
   }
 }
 

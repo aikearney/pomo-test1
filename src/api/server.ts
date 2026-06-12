@@ -49,8 +49,29 @@ function parseClientPrincipalHeader(encodedPrincipal: string): any | undefined {
   try {
     return JSON.parse(Buffer.from(trimmed, "base64").toString("utf8"));
   } catch {
+    try {
+      const normalized = trimmed.replace(/-/g, "+").replace(/_/g, "/");
+      const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+      return JSON.parse(Buffer.from(padded, "base64").toString("utf8"));
+    } catch {
+      return undefined;
+    }
+  }
+}
+
+function getClaimValue(principal: any, claimTypes: string[]): string | undefined {
+  const claims = principal?.claims;
+  if (!Array.isArray(claims)) {
     return undefined;
   }
+
+  const wanted = new Set(claimTypes.map((type) => type.toLowerCase()));
+  const match = claims.find((entry: any) =>
+    wanted.has(String(entry?.typ || entry?.type || "").toLowerCase())
+  );
+
+  const value = match?.val || match?.value;
+  return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
 // Safe auth endpoint - proxies /.auth/me but strips sensitive tokens
@@ -68,6 +89,12 @@ app.get("/api/auth/me", asyncHandler(async (req, res) => {
       ? {
           user_id:
             principalId ||
+            getClaimValue(decodedPrincipal, [
+              "sub",
+              "oid",
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier",
+              "http://schemas.microsoft.com/identity/claims/objectidentifier",
+            ]) ||
             decodedPrincipal.userId ||
             decodedPrincipal.userDetails ||
             null,
