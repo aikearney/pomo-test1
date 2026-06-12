@@ -18,26 +18,99 @@ function getAuthenticatedUserId(req: Request): string | undefined {
 
 const USER_ID_FILTER = "(c.userId = @userId OR c.userid = @userId)";
 
+function getHeaderValue(req: Request, name: string): string | undefined {
+  const direct = req.headers[name.toLowerCase()];
+  if (typeof direct === "string" && direct.length > 0) {
+    return direct;
+  }
+  if (Array.isArray(direct)) {
+    const first = direct.find((value) => typeof value === "string" && value.length > 0);
+    if (typeof first === "string") {
+      return first;
+    }
+  }
+  return undefined;
+}
+
+function parseClientPrincipalHeader(encodedPrincipal: string): any | undefined {
+  const trimmed = encodedPrincipal.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  if (trimmed.startsWith("{")) {
+    try {
+      return JSON.parse(trimmed);
+    } catch {
+      return undefined;
+    }
+  }
+
+  try {
+    return JSON.parse(Buffer.from(trimmed, "base64").toString("utf8"));
+  } catch {
+    return undefined;
+  }
+}
+
 // Safe auth endpoint - proxies /.auth/me but strips sensitive tokens
 app.get("/api/auth/me", asyncHandler(async (req, res) => {
   try {
-    const response = await fetch("http://localhost:7071/.auth/me", {
-      headers: {
-        "x-ms-client-principal": req.headers["x-ms-client-principal"] as string,
-        "x-ms-client-principal-id": req.headers["x-ms-client-principal-id"] as string,
-        "x-ms-client-principal-name": req.headers["x-ms-client-principal-name"] as string,
-      },
-    });
+    const principalHeader = getHeaderValue(req, "x-ms-client-principal");
+    const principalId = getHeaderValue(req, "x-ms-client-principal-id");
+    const providerNameHeader = getHeaderValue(req, "x-ms-client-principal-idp");
 
-    if (!response.ok) {
-      res.status(response.status).json({ error: "Unauthorized" });
-      return;
+    const decodedPrincipal = principalHeader
+      ? parseClientPrincipalHeader(principalHeader)
+      : undefined;
+
+    let principal = decodedPrincipal
+      ? {
+          user_id:
+            principalId ||
+            decodedPrincipal.userId ||
+            decodedPrincipal.userDetails ||
+            null,
+          user_claims: Array.isArray(decodedPrincipal.claims)
+            ? decodedPrincipal.claims
+            : [],
+          provider_name:
+            providerNameHeader ||
+            decodedPrincipal.identityProvider ||
+            decodedPrincipal.auth_typ ||
+            null,
+        }
+      : undefined;
+
+    // Fallback path when principal headers are unavailable in this hosting setup.
+    if (!principal?.user_id) {
+      const forwardedProto = getHeaderValue(req, "x-forwarded-proto") || req.protocol;
+      const host = getHeaderValue(req, "x-forwarded-host") || req.get("host");
+
+      if (!host) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const response = await fetch(`${forwardedProto}://${host}/.auth/me`, {
+        headers: {
+          cookie: getHeaderValue(req, "cookie") || "",
+          "x-ms-client-principal": principalHeader || "",
+          "x-ms-client-principal-id": principalId || "",
+          "x-ms-client-principal-name": getHeaderValue(req, "x-ms-client-principal-name") || "",
+        },
+      });
+
+      if (!response.ok) {
+        res.status(response.status).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const authInfo = await response.json();
+      principal = Array.isArray(authInfo) ? authInfo[0] : undefined;
     }
 
-    const authInfo = await response.json();
-    const principal = Array.isArray(authInfo) ? authInfo[0] : undefined;
-
-    if (!principal) {
+    if (!principal?.user_id) {
       res.status(401).json({ error: "Unauthorized" });
       return;
     }

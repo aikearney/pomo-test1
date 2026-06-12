@@ -869,6 +869,17 @@ function App() {
         }
 
         setIsAnonymousMode(false)
+        setIsAuthenticated((prev) => (prev ? prev : true))
+
+        const inferredUserId =
+          (lists[0] as { userId?: unknown; userid?: unknown } | undefined)
+            ?.userId ??
+          (lists[0] as { userId?: unknown; userid?: unknown } | undefined)
+            ?.userid
+
+        if (typeof inferredUserId === 'string' && inferredUserId.trim().length > 0) {
+          setAuthUserId((prev) => prev ?? inferredUserId)
+        }
 
         // Logged-in user with no lists -> create a default personal list in API.
         if (lists.length === 0) {
