@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import express, { type Request, type Response, type NextFunction, type RequestHandler } from "express";
 import path from "node:path";
 import { v4 as uuid } from "uuid";
@@ -11,6 +12,7 @@ const frontendDistPath = process.env.FRONTEND_DIST_PATH
   : path.resolve(process.cwd(), "../../dist");
 
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 function getAuthenticatedUserId(req: Request): string | undefined {
   return getUserId({ headers: req.headers });
@@ -440,6 +442,125 @@ app.delete("/api/tasks/:id", asyncHandler(async (req, res) => {
 app.use("/api", (_req, res) => {
   res.status(404).send("Not found");
 });
+
+// Facebook data deletion instructions page (set this URL in Facebook app settings)
+app.get("/auth/data-deletion", (_req, res) => {
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>Data Deletion - Pomodoro Timer</title>
+<style>body{font-family:sans-serif;max-width:600px;margin:60px auto;padding:0 20px;line-height:1.6}</style>
+</head>
+<body>
+<h1>Delete Your Data</h1>
+<p>To delete all your data from Pomodoro Timer (lists, tasks, and account information), you have two options:</p>
+<h2>Option 1 — Self-service (instant)</h2>
+<ol>
+<li>Log in to <a href="https://pomo-working.azurewebsites.net">Pomodoro Timer</a>.</li>
+<li>Delete each of your lists from the list selector dropdown.</li>
+<li>Log out. Your data is removed.</li>
+</ol>
+<h2>Option 2 — Contact us</h2>
+<p>Email <a href="mailto:aisling@kearney.ie">aisling@kearney.ie</a> with subject <strong>Data Deletion Request</strong>. We will delete your data within 30 days and confirm by email.</p>
+<p><small>We only store task lists and tasks you create. We do not store payment data or share your data with third parties.</small></p>
+</body></html>`);
+});
+
+// Facebook data deletion callback (called by Facebook when a user removes the app)
+app.post("/auth/data-deletion", asyncHandler(async (req, res) => {
+  const signedRequest = req.body?.signed_request as string | undefined;
+
+  if (!signedRequest) {
+    res.status(400).json({ error: "Missing signed_request" });
+    return;
+  }
+
+  const appSecret = process.env.FACEBOOK_APP_SECRET;
+  if (!appSecret) {
+    console.error("FACEBOOK_APP_SECRET not configured");
+    res.status(500).json({ error: "Server misconfiguration" });
+    return;
+  }
+
+  // Parse and verify Facebook signed_request
+  const [encodedSig, encodedPayload] = signedRequest.split(".");
+  if (!encodedSig || !encodedPayload) {
+    res.status(400).json({ error: "Malformed signed_request" });
+    return;
+  }
+
+  const normalize = (s: string) =>
+    s.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(s.length / 4) * 4, "=");
+
+  const expectedSig = crypto
+    .createHmac("sha256", appSecret)
+    .update(encodedPayload)
+    .digest("base64");
+
+  const receivedSig = Buffer.from(normalize(encodedSig), "base64").toString("base64");
+  if (expectedSig !== receivedSig) {
+    res.status(403).json({ error: "Invalid signature" });
+    return;
+  }
+
+  let payload: any;
+  try {
+    payload = JSON.parse(Buffer.from(normalize(encodedPayload), "base64").toString("utf8"));
+  } catch {
+    res.status(400).json({ error: "Invalid payload" });
+    return;
+  }
+
+  const facebookUserId = payload?.user_id as string | undefined;
+  if (!facebookUserId) {
+    res.status(400).json({ error: "Missing user_id in payload" });
+    return;
+  }
+
+  // Delete all data for this user (userId stored as Facebook numeric ID from Easy Auth)
+  try {
+    const lists = getListsContainer();
+    const tasks = getTasksContainer();
+
+    const { resources: userLists } = await lists.items
+      .query({
+        query: `SELECT c.id FROM c WHERE ${USER_ID_FILTER}`,
+        parameters: [{ name: "@userId", value: facebookUserId }],
+      })
+      .fetchAll();
+
+    await Promise.all(
+      userLists.map(async (list: any) => {
+        // Delete all tasks in this list
+        const { resources: listTasks } = await tasks.items
+          .query({
+            query: "SELECT c.id FROM c WHERE (c.userId = @userId OR c.userid = @userId) AND c.listId = @listId",
+            parameters: [
+              { name: "@userId", value: facebookUserId },
+              { name: "@listId", value: list.id },
+            ],
+          })
+          .fetchAll();
+
+        await Promise.all(listTasks.map((t: any) => tasks.item(t.id, facebookUserId).delete()));
+        await lists.item(list.id, facebookUserId).delete();
+      })
+    );
+
+    console.log(`Data deletion completed for Facebook user ${facebookUserId}: ${userLists.length} lists removed`);
+  } catch (err: any) {
+    console.error("Data deletion error:", err.message);
+    // Still return success — Facebook only retries on 5xx. Log for manual followup.
+  }
+
+  const confirmationCode = uuid();
+  const host = req.get("host") || "pomo-working.azurewebsites.net";
+  const proto = req.headers["x-forwarded-proto"] || req.protocol;
+
+  res.status(200).json({
+    url: `${proto}://${host}/auth/data-deletion?code=${confirmationCode}`,
+    confirmation_code: confirmationCode,
+  });
+}));
 
 app.use(express.static(frontendDistPath));
 
