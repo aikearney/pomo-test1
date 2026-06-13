@@ -482,7 +482,7 @@ app.get("/privacy", (req, res) => {
 <p>We use a session cookie set by Azure App Service Easy Auth to keep you logged in. No tracking or advertising cookies are used.</p>
 
 <h2>Contact</h2>
-<p>Questions? Email <a href="mailto:aisling@kearney.ie">aisling@kearney.ie</a>.</p>
+<p>Questions? Email <a href="mailto:amjo92@gmail.com">amjo92@gmail.com</a>.</p>
 </body></html>`);
 });
 
@@ -506,7 +506,7 @@ app.get("/auth/data-deletion", (req, res) => {
 <li>Log out. Your data is removed.</li>
 </ol>
 <h2>Option 2 — Contact us</h2>
-<p>Email <a href="mailto:aisling@kearney.ie">aisling@kearney.ie</a> with subject <strong>Data Deletion Request</strong>. We will delete your data within 30 days and confirm by email.</p>
+<p>Email <a href="mailto:amjo92@gmail.com">amjo92@gmail.com</a> with subject <strong>Data Deletion Request</strong>. We will delete your data within 30 days and confirm by email.</p>
 <p><small>We only store task lists and tasks you create. We do not store payment data or share your data with third parties.</small></p>
 </body></html>`);
 });
