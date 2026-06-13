@@ -443,6 +443,49 @@ app.use("/api", (_req, res) => {
   res.status(404).send("Not found");
 });
 
+// Privacy policy page
+app.get("/privacy", (req, res) => {
+  const proto = req.headers["x-forwarded-proto"] || req.protocol;
+  const host = req.get("host") || "pomo.azurewebsites.net";
+  const appUrl = `${proto}://${host}`;
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>Privacy Policy - Pomodoro Timer</title>
+<style>body{font-family:sans-serif;max-width:640px;margin:60px auto;padding:0 20px;line-height:1.7}h1{margin-bottom:4px}h2{margin-top:2em}small{color:#666}</style>
+</head>
+<body>
+<h1>Privacy Policy</h1>
+<small>Last updated: June 2026</small>
+
+<h2>What we collect</h2>
+<p>When you log in with Google or Facebook, we store:</p>
+<ul>
+  <li>Your user ID (provided by the identity provider)</li>
+  <li>Your display name (used only to show "Signed in as …")</li>
+  <li>The task lists and tasks you create</li>
+</ul>
+<p>We do <strong>not</strong> store passwords, payment data, or any other personal information.</p>
+
+<h2>How we use your data</h2>
+<p>Your data is used solely to save and sync your task lists across devices. We do not sell, share, or use your data for advertising or analytics.</p>
+
+<h2>Third-party login</h2>
+<p>We use Google and Facebook OAuth for authentication only. We do not receive or store access tokens — only your user ID and display name are retained.</p>
+
+<h2>Data storage</h2>
+<p>Data is stored in Microsoft Azure Cosmos DB in the North Europe region.</p>
+
+<h2>Data deletion</h2>
+<p>You can delete your data at any time. See our <a href="${appUrl}/auth/data-deletion">Data Deletion page</a> for instructions.</p>
+
+<h2>Cookies</h2>
+<p>We use a session cookie set by Azure App Service Easy Auth to keep you logged in. No tracking or advertising cookies are used.</p>
+
+<h2>Contact</h2>
+<p>Questions? Email <a href="mailto:aisling@kearney.ie">aisling@kearney.ie</a>.</p>
+</body></html>`);
+});
+
 // Facebook data deletion instructions page (set this URL in Facebook app settings)
 app.get("/auth/data-deletion", (req, res) => {
   const proto = req.headers["x-forwarded-proto"] || req.protocol;
