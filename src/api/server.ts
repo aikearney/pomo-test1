@@ -444,7 +444,10 @@ app.use("/api", (_req, res) => {
 });
 
 // Facebook data deletion instructions page (set this URL in Facebook app settings)
-app.get("/auth/data-deletion", (_req, res) => {
+app.get("/auth/data-deletion", (req, res) => {
+  const proto = req.headers["x-forwarded-proto"] || req.protocol;
+  const host = req.get("host") || "pomo.azurewebsites.net";
+  const appUrl = `${proto}://${host}`;
   res.send(`<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="UTF-8"><title>Data Deletion - Pomodoro Timer</title>
@@ -455,7 +458,7 @@ app.get("/auth/data-deletion", (_req, res) => {
 <p>To delete all your data from Pomodoro Timer (lists, tasks, and account information), you have two options:</p>
 <h2>Option 1 — Self-service (instant)</h2>
 <ol>
-<li>Log in to <a href="https://pomo-working.azurewebsites.net">Pomodoro Timer</a>.</li>
+<li>Log in to <a href="${appUrl}">Pomodoro Timer</a>.</li>
 <li>Delete each of your lists from the list selector dropdown.</li>
 <li>Log out. Your data is removed.</li>
 </ol>
@@ -553,7 +556,7 @@ app.post("/auth/data-deletion", asyncHandler(async (req, res) => {
   }
 
   const confirmationCode = uuid();
-  const host = req.get("host") || "pomo-working.azurewebsites.net";
+  const host = req.get("host") || "pomo.azurewebsites.net";
   const proto = req.headers["x-forwarded-proto"] || req.protocol;
 
   res.status(200).json({
