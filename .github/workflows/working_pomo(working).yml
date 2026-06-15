@@ -84,8 +84,23 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_91BF4BC1787E4C6D892395712CF06AB5 }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_BBA71C481D8645219108F0BC6D327622 }}
 
-      - name: 'Deploy to Azure Web App'
+      - name: 'Deploy to Azure Web App (attempt 1)'
         id: deploy-to-webapp
+        continue-on-error: true
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'pomo'
+          slot-name: 'working'
+          startup-command: 'npm --prefix src/api run start'
+          package: .
+
+      - name: Wait before retry after transient deployment conflict
+        if: steps.deploy-to-webapp.outcome == 'failure'
+        run: sleep 45
+
+      - name: 'Deploy to Azure Web App (attempt 2)'
+        if: steps.deploy-to-webapp.outcome == 'failure'
+        id: deploy-to-webapp-retry
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'pomo'
