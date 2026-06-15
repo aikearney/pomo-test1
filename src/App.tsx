@@ -2880,7 +2880,14 @@ function App() {
     )?.name
   })()
 
-  const incompleteTasks = tasksList.filter((t) => !t.completed)
+  const incompleteTasks = tasksList
+    .filter((t) => !t.completed)
+    .sort((a, b) => {
+      // High priority tasks come first
+      if (a.isHighPriority && !b.isHighPriority) return -1
+      if (!a.isHighPriority && b.isHighPriority) return 1
+      return 0
+    })
   const completedTasks = tasksList.filter((t) => t.completed)
   const completedTasksCount = completedTasks.length
   const showDataPrepOverlay =
