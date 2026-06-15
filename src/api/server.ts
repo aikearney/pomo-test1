@@ -14,6 +14,13 @@ const frontendDistPath = process.env.FRONTEND_DIST_PATH
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+app.get("/api/healthz", (_req, res) => {
+  res.status(200).json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+  });
+});
+
 function getAuthenticatedUserId(req: Request): string | undefined {
   return getUserId({ headers: req.headers });
 }
