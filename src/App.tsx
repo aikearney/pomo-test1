@@ -43,6 +43,7 @@ import {
   Play,
   Pause,
   Plus,
+  ArrowClockwise,
   BellSlash,
   Bell,
   ListDashes,
@@ -348,6 +349,7 @@ function App() {
   const [authDisplayName, setAuthDisplayName] = useState<string | null>(null)
   const [showLoginOverlay, setShowLoginOverlay] = useState(false)
   const [isSyncingLocalData, setIsSyncingLocalData] = useState(false)
+  const [refreshNonce, setRefreshNonce] = useState(0)
   const lastBackupFileHandleRef = useRef<any | null>(null)
 
   const AUTH_PROVIDER = (import.meta.env.VITE_AUTH_PROVIDER || 'aad').trim()
@@ -731,8 +733,25 @@ function App() {
   }
 
   const redirectToLogout = () => {
+    // Reset local auth-derived state immediately to avoid stale UI/white overlay on logout.
+    clearAuthCache()
+    setIsAuthenticated(false)
+    setAuthUserId(null)
+    setAuthDisplayName(null)
+    setShowLoginOverlay(false)
+
     const redirect = encodeURIComponent(getSafeAuthRedirectPath())
     window.location.assign(`/.auth/logout?post_logout_redirect_uri=${redirect}`)
+  }
+
+  const handleRefreshFromDatabase = () => {
+    if (!isAuthenticated || isAnonymousMode) {
+      toast.message('Sign in to refresh from the database.')
+      return
+    }
+
+    setRefreshNonce((prev) => prev + 1)
+    toast.success('Refreshing lists and tasks from database...')
   }
 
   const handleLoginClick = () => {
@@ -927,7 +946,7 @@ function App() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [refreshNonce])
 
   // One-time per-user migration: merge local anonymous data into signed-in storage.
   useEffect(() => {
@@ -1155,7 +1174,7 @@ function App() {
     return () => {
       cancelled = true
     }
-  }, [currentTaskListId, isAnonymousMode])
+  }, [currentTaskListId, isAnonymousMode, refreshNonce])
 
 
   const currentTaskList =
@@ -2751,6 +2770,15 @@ function App() {
             )}
 
             <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleRefreshFromDatabase}
+                title="Refresh from database"
+              >
+                <ArrowClockwise size={20} />
+              </Button>
+
               <Button
                 variant="outline"
                 size="sm"
