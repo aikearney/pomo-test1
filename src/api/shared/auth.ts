@@ -108,9 +108,13 @@ export function getUserId(req: any): string | undefined {
           "http://schemas.microsoft.com/identity/claims/objectidentifier",
         ]);
 
-      return decoded.userId || claimUserId || decoded.userDetails;
+      const decodedUserId = typeof decoded.userId === "string" && decoded.userId.length > 0
+        ? decoded.userId
+        : undefined;
+
+      return decodedUserId || claimUserId;
     }
   }
 
-  return getHeader(req, "x-ms-client-principal-name") || undefined;
+  return undefined;
 }

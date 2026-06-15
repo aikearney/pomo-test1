@@ -332,6 +332,28 @@ function clearAuthCache(): void {
   localStorage.removeItem(AUTH_CACHE_STORAGE_KEY)
 }
 
+function applySignedOutAuthState(
+  setIsAuthenticated: React.Dispatch<React.SetStateAction<boolean>>,
+  setAuthUserId: React.Dispatch<React.SetStateAction<string | null>>,
+  setAuthDisplayName: React.Dispatch<React.SetStateAction<string | null>>
+): void {
+  setIsAuthenticated(false)
+  setAuthUserId(null)
+  setAuthDisplayName(null)
+  clearAuthCache()
+}
+
+function applyCachedAuthState(
+  cachedAuth: AuthCache,
+  setIsAuthenticated: React.Dispatch<React.SetStateAction<boolean>>,
+  setAuthUserId: React.Dispatch<React.SetStateAction<string | null>>,
+  setAuthDisplayName: React.Dispatch<React.SetStateAction<string | null>>
+): void {
+  setIsAuthenticated(true)
+  setAuthUserId(cachedAuth.userId)
+  setAuthDisplayName(cachedAuth.displayName)
+}
+
 function App() {
   // --- LISTS + TASKS (REST-backed) ---
 
@@ -350,6 +372,8 @@ function App() {
   const [showLoginOverlay, setShowLoginOverlay] = useState(false)
   const [isSyncingLocalData, setIsSyncingLocalData] = useState(false)
   const [refreshNonce, setRefreshNonce] = useState(0)
+  const [authCheckNonce, setAuthCheckNonce] = useState(0)
+  const [isAuthStateResolved, setIsAuthStateResolved] = useState(false)
   const lastBackupFileHandleRef = useRef<any | null>(null)
 
   const AUTH_PROVIDER = (import.meta.env.VITE_AUTH_PROVIDER || 'aad').trim()
@@ -727,20 +751,29 @@ function App() {
     return currentPath || '/'
   }
 
+  const buildAbsoluteRedirectUrl = (path: string) => {
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`
+    return `${window.location.origin}${normalizedPath}`
+  }
+
   const redirectToLogin = (provider = AUTH_PROVIDER) => {
-    const redirect = encodeURIComponent(getSafeAuthRedirectPath())
+    const redirect = encodeURIComponent(
+      buildAbsoluteRedirectUrl(getSafeAuthRedirectPath())
+    )
     window.location.assign(`/.auth/login/${provider}?post_login_redirect_uri=${redirect}`)
   }
 
   const redirectToLogout = () => {
     // Reset local auth-derived state immediately to avoid stale UI/white overlay on logout.
-    clearAuthCache()
-    setIsAuthenticated(false)
-    setAuthUserId(null)
-    setAuthDisplayName(null)
+    applySignedOutAuthState(
+      setIsAuthenticated,
+      setAuthUserId,
+      setAuthDisplayName
+    )
     setShowLoginOverlay(false)
+    setIsAnonymousMode(true)
 
-    const redirect = encodeURIComponent(getSafeAuthRedirectPath())
+    const redirect = encodeURIComponent(buildAbsoluteRedirectUrl('/'))
     window.location.assign(`/.auth/logout?post_logout_redirect_uri=${redirect}`)
   }
 
@@ -763,9 +796,35 @@ function App() {
   }
 
   useEffect(() => {
+    const triggerAuthCheck = () => {
+      setAuthCheckNonce((currentNonce) => currentNonce + 1)
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        triggerAuthCheck()
+      }
+    }
+
+    window.addEventListener('pageshow', triggerAuthCheck)
+    window.addEventListener('focus', triggerAuthCheck)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      window.removeEventListener('pageshow', triggerAuthCheck)
+      window.removeEventListener('focus', triggerAuthCheck)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [])
+
+  useEffect(() => {
     let cancelled = false
 
     const loadAuthState = async () => {
+      if (!cancelled) {
+        setIsAuthStateResolved(false)
+      }
+
       const controller = new AbortController()
       const timeoutId = window.setTimeout(() => controller.abort(), AUTH_ME_TIMEOUT_MS)
 
@@ -775,20 +834,29 @@ function App() {
           signal: controller.signal,
         })
         if (!res.ok) {
-          // Server auth check failed - try localStorage fallback
           if (!cancelled) {
-            const cachedAuth = loadAuthCache()
-            if (cachedAuth) {
-              // Restore from cache
-              setIsAuthenticated(true)
-              setAuthUserId(cachedAuth.userId)
-              setAuthDisplayName(cachedAuth.displayName)
+            if (res.status === 401 || res.status === 403) {
+              applySignedOutAuthState(
+                setIsAuthenticated,
+                setAuthUserId,
+                setAuthDisplayName
+              )
             } else {
-              // No valid cache - user not logged in
-              setIsAuthenticated(false)
-              setAuthUserId(null)
-              setAuthDisplayName(null)
-              clearAuthCache()
+              const cachedAuth = loadAuthCache()
+              if (cachedAuth) {
+                applyCachedAuthState(
+                  cachedAuth,
+                  setIsAuthenticated,
+                  setAuthUserId,
+                  setAuthDisplayName
+                )
+              } else {
+                applySignedOutAuthState(
+                  setIsAuthenticated,
+                  setAuthUserId,
+                  setAuthDisplayName
+                )
+              }
             }
           }
           return
@@ -837,31 +905,42 @@ function App() {
             saveAuthCache(userId, displayName)
           } else {
             // User not authenticated - clear cache
-            setIsAuthenticated(false)
-            setAuthUserId(null)
-            setAuthDisplayName(null)
-            clearAuthCache()
+            applySignedOutAuthState(
+              setIsAuthenticated,
+              setAuthUserId,
+              setAuthDisplayName
+            )
           }
         }
-      } catch {
+      } catch (error) {
         // Network error or timeout - try localStorage fallback
         if (!cancelled) {
           const cachedAuth = loadAuthCache()
-          if (cachedAuth) {
-            // Restore from cache during offline/error
-            setIsAuthenticated(true)
-            setAuthUserId(cachedAuth.userId)
-            setAuthDisplayName(cachedAuth.displayName)
+          const isTransientAuthFailure =
+            error instanceof DOMException
+              ? error.name === 'AbortError'
+              : true
+
+          if (cachedAuth && isTransientAuthFailure) {
+            applyCachedAuthState(
+              cachedAuth,
+              setIsAuthenticated,
+              setAuthUserId,
+              setAuthDisplayName
+            )
           } else {
-            // No valid cache
-            setIsAuthenticated(false)
-            setAuthUserId(null)
-            setAuthDisplayName(null)
-            clearAuthCache()
+            applySignedOutAuthState(
+              setIsAuthenticated,
+              setAuthUserId,
+              setAuthDisplayName
+            )
           }
         }
       } finally {
         window.clearTimeout(timeoutId)
+        if (!cancelled) {
+          setIsAuthStateResolved(true)
+        }
       }
     }
 
@@ -869,13 +948,17 @@ function App() {
     return () => {
       cancelled = true
     }
-  }, [AUTH_PROVIDER])
+  }, [AUTH_PROVIDER, authCheckNonce])
 
   // Load lists on mount
   useEffect(() => {
     let cancelled = false
 
     const loadLists = async () => {
+      if (!isAuthStateResolved) {
+        return
+      }
+
       try {
         setIsLoadingLists(true)
 
@@ -946,7 +1029,7 @@ function App() {
     return () => {
       cancelled = true
     }
-  }, [refreshNonce])
+  }, [isAuthStateResolved, isAuthenticated, refreshNonce])
 
   // One-time per-user migration: merge local anonymous data into signed-in storage.
   useEffect(() => {
@@ -2662,6 +2745,14 @@ function App() {
   const getBackgroundStyle = () => {
     if (!backgroundImage) return undefined
 
+    const isStandaloneMode =
+      (typeof window.matchMedia === 'function' &&
+        window.matchMedia('(display-mode: standalone)').matches) ||
+      (navigator as Navigator & { standalone?: boolean }).standalone === true
+    const isIOSDevice =
+      /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+
     const isPreset = !backgroundImage.startsWith('data:')
     if (isPreset) {
       const preset = PRESET_BACKGROUNDS.find((p) => p.id === backgroundImage)
@@ -2677,7 +2768,8 @@ function App() {
       backgroundImage: `url(${backgroundImage})`,
       backgroundSize: 'cover',
       backgroundPosition: 'center',
-      backgroundAttachment: 'fixed',
+      backgroundRepeat: 'no-repeat',
+      backgroundAttachment: isStandaloneMode && isIOSDevice ? 'scroll' : 'fixed',
     }
   }
 

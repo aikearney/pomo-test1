@@ -97,8 +97,9 @@ app.get("/api/auth/me", asyncHandler(async (req, res) => {
               "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier",
               "http://schemas.microsoft.com/identity/claims/objectidentifier",
             ]) ||
-            decodedPrincipal.userId ||
-            decodedPrincipal.userDetails ||
+            (typeof decodedPrincipal.userId === "string" && decodedPrincipal.userId.length > 0
+              ? decodedPrincipal.userId
+              : null) ||
             null,
           user_claims: Array.isArray(decodedPrincipal.claims)
             ? decodedPrincipal.claims
