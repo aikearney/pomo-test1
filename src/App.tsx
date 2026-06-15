@@ -1219,6 +1219,88 @@ function App() {
     }))
   }, [currentTaskListId, tasks])
 
+  useEffect(() => {
+    if (!isAnonymousMode || !currentTaskListId || !isLocalListId(currentTaskListId)) {
+      return
+    }
+
+    persistTasksForList(currentTaskListId, tasks || [])
+  }, [currentTaskListId, isAnonymousMode, tasks])
+
+  useEffect(() => {
+    if (!isAnonymousMode) return
+
+    writeLocalLists((taskLists || []).filter((list) => list.id !== 'personal'))
+  }, [isAnonymousMode, taskLists])
+
+  useEffect(() => {
+    if (!isAnonymousMode) return
+
+    const refreshAnonymousSnapshot = () => {
+      const personalList: TaskList = {
+        id: 'personal',
+        name: 'Personal',
+        createdAt: 0,
+      }
+      const localLists = readLocalLists()
+      const mergedLists = [personalList, ...localLists]
+
+      const savedListId = localStorage.getItem('pomodoro-current-list-id') || null
+      const preferredListId =
+        currentTaskListId && mergedLists.some((list) => list.id === currentTaskListId)
+          ? currentTaskListId
+          : savedListId
+      const nextListId =
+        (preferredListId && mergedLists.some((list) => list.id === preferredListId)
+          ? preferredListId
+          : mergedLists[0]?.id) || 'personal'
+
+      const nextTasks = readLocalTasksForList(nextListId)
+
+      setTaskLists(mergedLists)
+      setCurrentTaskListId(nextListId)
+      setTasks(Array.isArray(nextTasks) ? nextTasks : [])
+      setTasksByListId((prev) => ({
+        ...prev,
+        [nextListId]: Array.isArray(nextTasks) ? nextTasks : [],
+      }))
+    }
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.storageArea !== localStorage) return
+
+      const key = event.key
+      const relevantKey =
+        key === null ||
+        key === LOCAL_LISTS_KEY ||
+        key === 'personalTasks' ||
+        key === 'pomodoro-current-list-id' ||
+        key.startsWith('pomodoro-local-tasks:')
+
+      if (relevantKey) {
+        refreshAnonymousSnapshot()
+      }
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshAnonymousSnapshot()
+      }
+    }
+
+    window.addEventListener('storage', handleStorage)
+    window.addEventListener('pageshow', refreshAnonymousSnapshot)
+    window.addEventListener('focus', refreshAnonymousSnapshot)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      window.removeEventListener('storage', handleStorage)
+      window.removeEventListener('pageshow', refreshAnonymousSnapshot)
+      window.removeEventListener('focus', refreshAnonymousSnapshot)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [currentTaskListId, isAnonymousMode])
+
   // Load tasks when current list changes
   useEffect(() => {
     let cancelled = false
@@ -1365,6 +1447,7 @@ function App() {
   const [showAcknowledgmentDialog, setShowAcknowledgmentDialog] =
     useState(false)
   const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false)
+  const [showClearLocalDataDialog, setShowClearLocalDataDialog] = useState(false)
   const [showTemplatesDialog, setShowTemplatesDialog] = useState(false)
 
   // --- TIMER EFFECTS ---
@@ -2806,6 +2889,50 @@ function App() {
     (isSyncingLocalData ||
       isLoadingLists ||
       (isLoadingTasks && tasksList.length === 0))
+  const showLocalModeWarning = isAnonymousMode || !isAuthenticated
+
+  const clearLocalTaskData = () => {
+    const keysToRemove: string[] = []
+
+    for (let index = 0; index < localStorage.length; index += 1) {
+      const key = localStorage.key(index)
+      if (!key) continue
+
+      if (
+        key === LOCAL_LISTS_KEY ||
+        key === 'personalTasks' ||
+        key.startsWith('pomodoro-local-tasks:')
+      ) {
+        keysToRemove.push(key)
+      }
+    }
+
+    keysToRemove.forEach((key) => localStorage.removeItem(key))
+    localStorage.setItem('pomodoro-current-list-id', 'personal')
+
+    const personalList: TaskList = {
+      id: 'personal',
+      name: 'Personal',
+      createdAt: 0,
+    }
+
+    setTaskLists([personalList])
+    setCurrentTaskListId('personal')
+    setTasks([])
+    setTasksByListId({ personal: [] })
+    setTimerState((prev) => ({
+      ...prev,
+      currentTaskId: null,
+    }))
+    setCurrentTaskListIdForTimer((prev) =>
+      prev && isLocalListId(prev) ? 'personal' : prev
+    )
+    setShowClearLocalDataDialog(false)
+
+    toast.success('Local lists and tasks cleared', {
+      description: 'You can keep using the app with a fresh Personal list.',
+    })
+  }
 
   return (
     <>
@@ -2920,6 +3047,27 @@ function App() {
             <p className="text-xs text-muted-foreground text-right -mt-2">
               Signed in as {authDisplayName}
             </p>
+          )}
+
+          {showLocalModeWarning && (
+            <Card className="p-3 border-amber-300/60 bg-amber-50/70">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-amber-900">
+                  {isAuthenticated
+                    ? 'Offline/local mode is active. Your latest changes are kept on this device and will sync when cloud access is available.'
+                    : 'You are using local mode while logged out. Lists and tasks stay visible, but changes may not persist across devices unless you sign in.'}
+                </p>
+                {!isAuthenticated && (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => setShowClearLocalDataDialog(true)}
+                  >
+                    Clear Local Data
+                  </Button>
+                )}
+              </div>
+            </Card>
           )}
 
           <TimerDisplay
@@ -3396,6 +3544,30 @@ function App() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Delete All
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={showClearLocalDataDialog}
+        onOpenChange={setShowClearLocalDataDialog}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear Local Lists and Tasks?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove local lists and tasks stored on this
+              device while logged out. Your settings stay unchanged.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={clearLocalTaskData}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Clear Local Data
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
