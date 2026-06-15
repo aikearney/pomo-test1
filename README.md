@@ -1,27 +1,20 @@
-# Pomodoro Timer
+# ✨ Pomodoro Timer!
 
-Pomodoro task manager with a React frontend and REST APIs backed by Azure Cosmos DB.
+Designed to help you stay focused and work in short, intentional bursts!
 
-This repository now uses a single Node web server for both static frontend hosting and `/api` routes, suitable for a single Azure App Service Web App deployment.
+🧠 What Can You Do?
+It follows the Pomodoro Technique: you work for 25 minutes, take a short 5minute break, and repeat. After 4 focus sessions, you take a longer 15 minute break to reset.
+Start the timer, focus on a single task until the session ends, then step away during the break. The app handles the timing for you so you can concentrate on getting work done without watching the clock.
 
-## What Stayed The Same
-
-- Frontend UI and behavior.
-- Frontend API contract (`/api/lists`, `/api/lists/:id`, `/api/lists/:id/tasks`, `/api/tasks/:id`).
-- Core data model for lists and tasks.
-
-## What Changed For App Service Readiness
-
-- Added an Express REST server in `src/api/server.ts`.
-- Server now owns the API routes and serves frontend static assets from `dist`.
-- Azure Functions runtime scripts/dependencies were removed from active API runtime wiring.
-- Legacy Functions artifacts were isolated under `src/api/legacy-functions/` and `.legacy/functions/`.
+🚀 The best part?
+- You can add your tasks and sub tasks
+- Decide how many 25 minute sessions you need per task
+- Add your own background
 
 ## Prerequisites
 
 - Existing Azure App Service Plan (already created).
 - Existing Azure Cosmos DB SQL account/database/containers.
-- Azure Key Vault for secrets.
 
 ## Runtime Settings
 
@@ -56,20 +49,6 @@ Managed identity notes:
 - Managed identity mode avoids local keys and connection strings.
 - Assign App Service managed identity the Cosmos data-plane role `Cosmos DB Built-in Data Contributor`.
 - When cutover is complete and verified, you can disable local authorization in Cosmos.
-
-## Key Vault Integration
-
-Use App Service Key Vault references for secrets.
-
-Example value for `COSMOS_CONNECTION_STRING` app setting:
-
-`@Microsoft.KeyVault(SecretUri=https://<your-vault>.vault.azure.net/secrets/<your-secret-name>/)`
-
-Notes:
-
-- Enable managed identity on the app.
-- Grant that identity permission to read secrets from Key Vault.
-- Keep Azure login logic inside CI/CD workflow later (not in app code).
 
 ## Local Validation (No Workflow Required)
 
@@ -151,12 +130,6 @@ npm --prefix src/api run start
 ```
 
 - Keep secrets in Key Vault and use App Setting references.
-
-## Legacy Azure Functions Artifacts
-
-- Legacy endpoint/function metadata is isolated in `src/api/legacy-functions/`.
-- Legacy local Functions host config is isolated in `.legacy/functions/`.
-- These files are retained for reference only and are not used by the active runtime.
 
 ## Product Summary
 
