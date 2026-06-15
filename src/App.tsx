@@ -770,6 +770,11 @@ function App() {
       setAuthUserId,
       setAuthDisplayName
     )
+    // Clear all task data on logout
+    setTasks([])
+    setTaskLists([])
+    setCurrentTaskListId(null)
+    setTasksByListId({})
     setShowLoginOverlay(false)
     setIsAnonymousMode(true)
 
