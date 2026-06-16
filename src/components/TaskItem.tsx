@@ -189,6 +189,7 @@ function SubtaskItem({
   const rowGapClass = layoutMode === 'comfortable' ? 'gap-2' : 'gap-1.5'
   const controlGapClass = layoutMode === 'comfortable' ? 'gap-1' : 'gap-0.5'
   const gridGapClass = layoutMode === 'comfortable' ? 'gap-1' : 'gap-0.5'
+  const stackControls = layoutMode === 'ultra'
 
   const startEditing = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -241,6 +242,95 @@ function SubtaskItem({
       }
     }, 100)
   }
+
+  const subtaskControls = (
+    <div
+      className={cn(
+        'flex max-w-full items-center shrink-0',
+        controlGapClass,
+        stackControls && 'w-full justify-end'
+      )}
+    >
+      {showInlineMoveButtons && (
+        <>
+          <Button
+            variant="ghost"
+            size="icon"
+            className={controlButtonClass}
+            onClick={onMoveUp}
+            disabled={!canMoveUp}
+            title="Move subtask up"
+          >
+            <CaretUp size={controlIconSize} />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className={controlButtonClass}
+            onClick={onMoveDown}
+            disabled={!canMoveDown}
+            title="Move subtask down"
+          >
+            <CaretDown size={controlIconSize} />
+          </Button>
+        </>
+      )}
+      {showIterationsBadge && (
+        <Badge
+          variant="outline"
+          className={cn(
+            'cursor-pointer hover:bg-accent/10 transition-colors shrink-0',
+            layoutMode === 'comfortable' ? 'text-xs' : 'text-[10px] px-1'
+          )}
+          onClick={startEditing}
+        >
+          {subtask.iterations}
+        </Badge>
+      )}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn(controlButtonClass, 'shrink-0')}
+            title="More actions"
+          >
+            <DotsThree size={controlIconSize} weight="bold" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={startEditing}>
+            Edit
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={onMoveUp} disabled={!canMoveUp}>
+            Move up
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={onMoveDown} disabled={!canMoveDown}>
+            Move down
+          </DropdownMenuItem>
+          {canMoveToAnotherTask && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={onMoveToTask}>
+                Move to task...
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onCopyToTask}>
+                Copy to task...
+              </DropdownMenuItem>
+            </>
+          )}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={onDelete}
+            className="text-destructive focus:text-destructive"
+          >
+            Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  )
 
   return (
     <div
@@ -298,100 +388,41 @@ function SubtaskItem({
           />
         </div>
       ) : (
-        <div className={cn('grid flex-1 min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start', gridGapClass)}>
-          <div className="min-w-0">
-            <div className="block w-full whitespace-normal break-words [overflow-wrap:anywhere] text-xs leading-snug">
-              {renderTextWithLinks(
-                subtask.name,
-                cn(
-                  'cursor-pointer hover:text-accent transition-colors',
-                  subtask.completed && 'line-through text-muted-foreground'
-                ),
-                startEditing
-              )}
+        <>
+          {stackControls ? (
+            <div className="flex flex-1 min-w-0 flex-col gap-1">
+              <div className="min-w-0">
+                <div className="block w-full whitespace-normal break-words [overflow-wrap:anywhere] text-xs leading-snug">
+                  {renderTextWithLinks(
+                    subtask.name,
+                    cn(
+                      'cursor-pointer hover:text-accent transition-colors',
+                      subtask.completed && 'line-through text-muted-foreground'
+                    ),
+                    startEditing
+                  )}
+                </div>
+              </div>
+              {subtaskControls}
             </div>
-          </div>
-          <div className={cn('flex max-w-full items-center shrink-0', controlGapClass)}>
-            {showInlineMoveButtons && (
-              <>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={controlButtonClass}
-                  onClick={onMoveUp}
-                  disabled={!canMoveUp}
-                  title="Move subtask up"
-                >
-                  <CaretUp size={controlIconSize} />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={controlButtonClass}
-                  onClick={onMoveDown}
-                  disabled={!canMoveDown}
-                  title="Move subtask down"
-                >
-                  <CaretDown size={controlIconSize} />
-                </Button>
-              </>
-            )}
-            {showIterationsBadge && (
-              <Badge 
-                variant="outline" 
-                className={cn(
-                  'cursor-pointer hover:bg-accent/10 transition-colors shrink-0',
-                  layoutMode === 'comfortable' ? 'text-xs' : 'text-[10px] px-1'
-                )}
-                onClick={startEditing}
-              >
-                {subtask.iterations}
-              </Badge>
-            )}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={cn(controlButtonClass, 'shrink-0')}
-                  title="More actions"
-                >
-                  <DotsThree size={controlIconSize} weight="bold" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={startEditing}>
-                  Edit
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={onMoveUp} disabled={!canMoveUp}>
-                  Move up
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={onMoveDown} disabled={!canMoveDown}>
-                  Move down
-                </DropdownMenuItem>
-                {canMoveToAnotherTask && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={onMoveToTask}>
-                      Move to task...
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={onCopyToTask}>
-                      Copy to task...
-                    </DropdownMenuItem>
-                  </>
-                )}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={onDelete}
-                  className="text-destructive focus:text-destructive"
-                >
-                  Delete
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
+          ) : (
+            <div className={cn('grid flex-1 min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start', gridGapClass)}>
+              <div className="min-w-0">
+                <div className="block w-full whitespace-normal break-words [overflow-wrap:anywhere] text-xs leading-snug">
+                  {renderTextWithLinks(
+                    subtask.name,
+                    cn(
+                      'cursor-pointer hover:text-accent transition-colors',
+                      subtask.completed && 'line-through text-muted-foreground'
+                    ),
+                    startEditing
+                  )}
+                </div>
+              </div>
+              {subtaskControls}
+            </div>
+          )}
+        </>
       )}
     </div>
   )
@@ -786,122 +817,6 @@ export function TaskItem({
             </div>
           )}
 
-          {!task.collapsed && task.subtasks.length > 0 && (
-            <div className="mt-2 ml-2 sm:ml-4 min-w-0 max-w-full space-y-1 overflow-hidden">
-              {incompleteSubtasks.map((subtask) => {
-                const subtaskIndex = task.subtasks.findIndex(st => st.id === subtask.id)
-
-                return (
-                <SubtaskItem
-                  key={subtask.id}
-                  subtask={subtask}
-                  onUpdate={(updatedSubtask) => updateSubtask(subtask.id, updatedSubtask)}
-                  onToggleComplete={() => toggleSubtaskComplete(subtask.id)}
-                  onDelete={() => deleteSubtask(subtask.id)}
-                  onAddNew={() => setIsAddingSubtask(true)}
-                  onMoveUp={() => moveSubtask(subtask.id, 'up')}
-                  onMoveDown={() => moveSubtask(subtask.id, 'down')}
-                  canMoveUp={subtaskIndex > 0}
-                  canMoveDown={subtaskIndex < task.subtasks.length - 1}
-                  onMoveToTask={() => setSubtaskToMove(subtask.id)}
-                  canMoveToAnotherTask={true}
-                  onCopyToTask={() => setSubtaskToCopy(subtask.id)}
-                  isHighPriority={task.isHighPriority}
-                />
-                )
-              })}
-            </div>
-          )}
-
-          {!task.collapsed && isAddingSubtask && (
-            <div className="mt-2 ml-2 sm:ml-4 flex flex-col sm:flex-row gap-2">
-              <Textarea
-                ref={subtaskInputRef}
-                id="subtask-name"
-                placeholder="Subtask name"
-                rows={2}
-                value={subtaskName}
-                onChange={(e) => setSubtaskName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault()
-                    addSubtaskAndKeepOpen()
-                    setTimeout(() => subtaskInputRef.current?.focus(), 50)
-                  }
-                  if (e.key === 'Escape') {
-                    e.preventDefault()
-                    setIsAddingSubtask(false)
-                  }
-                }}
-                className="min-h-[2.5rem] max-h-48 resize-none overflow-y-auto overflow-x-hidden [overflow-wrap:anywhere] text-sm leading-snug flex-1 min-w-0"
-                autoFocus
-              />
-              <Input
-                id="subtask-iterations"
-                type="number"
-                min="1"
-                placeholder="Iter"
-                value={subtaskIterations}
-                onChange={(e) => setSubtaskIterations(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    addSubtaskAndKeepOpen()
-                    setTimeout(() => subtaskInputRef.current?.focus(), 50)
-                  }
-                }}
-                className="h-8 w-14 sm:w-16 text-xs"
-              />
-              <Button
-                size="sm"
-                onClick={() => {
-                  addSubtask()
-                  setIsAddingSubtask(false)
-                }}
-                className="h-8 px-2 sm:px-3 shrink-0"
-              >
-                Add
-              </Button>
-            </div>
-          )}
-
-          {!task.collapsed && !isAddingSubtask && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="mt-2 ml-2 sm:ml-4 h-8 text-xs"
-              onClick={() => setIsAddingSubtask(true)}
-            >
-              <Plus size={14} className="mr-1" />
-              Add Subtask
-            </Button>
-          )}
-
-          {!task.collapsed && completedSubtasks.length > 0 && (
-            <div className="mt-2 ml-2 sm:ml-4 min-w-0 max-w-full space-y-1 overflow-hidden">
-              {completedSubtasks.map((subtask) => {
-                const subtaskIndex = task.subtasks.findIndex(st => st.id === subtask.id)
-
-                return (
-                <SubtaskItem
-                  key={subtask.id}
-                  subtask={subtask}
-                  onUpdate={(updatedSubtask) => updateSubtask(subtask.id, updatedSubtask)}
-                  onToggleComplete={() => toggleSubtaskComplete(subtask.id)}
-                  onDelete={() => deleteSubtask(subtask.id)}
-                  onAddNew={() => setIsAddingSubtask(true)}
-                  onMoveUp={() => moveSubtask(subtask.id, 'up')}
-                  onMoveDown={() => moveSubtask(subtask.id, 'down')}
-                  canMoveUp={subtaskIndex > 0}
-                  canMoveDown={subtaskIndex < task.subtasks.length - 1}
-                  onMoveToTask={() => setSubtaskToMove(subtask.id)}
-                  canMoveToAnotherTask={true}
-                  onCopyToTask={() => setSubtaskToCopy(subtask.id)}
-                  isHighPriority={task.isHighPriority}
-                />
-                )
-              })}
-            </div>
-          )}
         </div>
 
         {!isEditing && (
@@ -1012,6 +927,127 @@ export function TaskItem({
           </div>
         )}
       </div>
+
+      {!task.collapsed && (
+        <div className="mt-2 rounded-md border border-border/60 bg-muted/20 p-2 sm:p-3 min-w-0 max-w-full overflow-hidden">
+          {task.subtasks.length > 0 && (
+            <div className="min-w-0 max-w-full space-y-1 overflow-hidden">
+              {incompleteSubtasks.map((subtask) => {
+                const subtaskIndex = task.subtasks.findIndex(st => st.id === subtask.id)
+
+                return (
+                  <SubtaskItem
+                    key={subtask.id}
+                    subtask={subtask}
+                    onUpdate={(updatedSubtask) => updateSubtask(subtask.id, updatedSubtask)}
+                    onToggleComplete={() => toggleSubtaskComplete(subtask.id)}
+                    onDelete={() => deleteSubtask(subtask.id)}
+                    onAddNew={() => setIsAddingSubtask(true)}
+                    onMoveUp={() => moveSubtask(subtask.id, 'up')}
+                    onMoveDown={() => moveSubtask(subtask.id, 'down')}
+                    canMoveUp={subtaskIndex > 0}
+                    canMoveDown={subtaskIndex < task.subtasks.length - 1}
+                    onMoveToTask={() => setSubtaskToMove(subtask.id)}
+                    canMoveToAnotherTask={true}
+                    onCopyToTask={() => setSubtaskToCopy(subtask.id)}
+                    isHighPriority={task.isHighPriority}
+                  />
+                )
+              })}
+            </div>
+          )}
+
+          {isAddingSubtask && (
+            <div className="mt-2 flex flex-col sm:flex-row gap-2">
+              <Textarea
+                ref={subtaskInputRef}
+                id="subtask-name"
+                placeholder="Subtask name"
+                rows={2}
+                value={subtaskName}
+                onChange={(e) => setSubtaskName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    addSubtaskAndKeepOpen()
+                    setTimeout(() => subtaskInputRef.current?.focus(), 50)
+                  }
+                  if (e.key === 'Escape') {
+                    e.preventDefault()
+                    setIsAddingSubtask(false)
+                  }
+                }}
+                className="min-h-[2.5rem] max-h-48 resize-none overflow-y-auto overflow-x-hidden [overflow-wrap:anywhere] text-sm leading-snug flex-1 min-w-0"
+                autoFocus
+              />
+              <Input
+                id="subtask-iterations"
+                type="number"
+                min="1"
+                placeholder="Iter"
+                value={subtaskIterations}
+                onChange={(e) => setSubtaskIterations(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    addSubtaskAndKeepOpen()
+                    setTimeout(() => subtaskInputRef.current?.focus(), 50)
+                  }
+                }}
+                className="h-8 w-14 sm:w-16 text-xs"
+              />
+              <Button
+                size="sm"
+                onClick={() => {
+                  addSubtask()
+                  setIsAddingSubtask(false)
+                }}
+                className="h-8 px-2 sm:px-3 shrink-0"
+              >
+                Add
+              </Button>
+            </div>
+          )}
+
+          {!isAddingSubtask && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="mt-2 h-8 text-xs"
+              onClick={() => setIsAddingSubtask(true)}
+            >
+              <Plus size={14} className="mr-1" />
+              Add Subtask
+            </Button>
+          )}
+
+          {completedSubtasks.length > 0 && (
+            <div className="mt-2 min-w-0 max-w-full space-y-1 overflow-hidden border-t border-border/50 pt-2">
+              {completedSubtasks.map((subtask) => {
+                const subtaskIndex = task.subtasks.findIndex(st => st.id === subtask.id)
+
+                return (
+                  <SubtaskItem
+                    key={subtask.id}
+                    subtask={subtask}
+                    onUpdate={(updatedSubtask) => updateSubtask(subtask.id, updatedSubtask)}
+                    onToggleComplete={() => toggleSubtaskComplete(subtask.id)}
+                    onDelete={() => deleteSubtask(subtask.id)}
+                    onAddNew={() => setIsAddingSubtask(true)}
+                    onMoveUp={() => moveSubtask(subtask.id, 'up')}
+                    onMoveDown={() => moveSubtask(subtask.id, 'down')}
+                    canMoveUp={subtaskIndex > 0}
+                    canMoveDown={subtaskIndex < task.subtasks.length - 1}
+                    onMoveToTask={() => setSubtaskToMove(subtask.id)}
+                    canMoveToAnotherTask={true}
+                    onCopyToTask={() => setSubtaskToCopy(subtask.id)}
+                    isHighPriority={task.isHighPriority}
+                  />
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
       
       <RecurrenceDialog
         open={showRecurrenceDialog}

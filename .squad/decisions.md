@@ -40,6 +40,27 @@
 - **Scope:** App Service deployment workflows for test1/main and working slots.
 - **Source:** `.squad/decisions/inbox/ash-main-test1-package-parity-2026-05-31.md`
 
+### 2026-06-15: Frontend auth revalidation and iOS standalone background fallback
+- **By:** Dallas
+- **Decision:** Treat explicit auth failures from `/api/auth/me` as signed-out state instead of restoring cached auth, re-run auth checks on page restore/focus, use an absolute root logout redirect, and disable `background-attachment: fixed` for custom backgrounds in iOS standalone mode.
+- **Rationale:** Prevents stale signed-in UI after server session loss, avoids logout landing on a blank route state, and works around iPhone saved-to-home-screen rendering issues with fixed background images.
+- **Scope:** Frontend-only; no backend contract, API payload, or visual redesign changes.
+- **Source:** `.squad/decisions/inbox/dallas-auth-pwa.md`
+
+### 2026-06-15: Easy Auth identity proof boundary
+- **By:** Parker
+- **Decision:** Backend auth helpers must only treat Easy Auth principal id or stable subject/object-id claims as authoritative identity, and must not infer authentication from display-name fields such as `x-ms-client-principal-name` or `userDetails`.
+- **Rationale:** Display-only fields can persist when the real session is no longer usable, which creates stale signed-in state and misroutes authenticated API behavior.
+- **Scope:** Shared auth extraction and `/api/auth/me` response shaping for App Service Easy Auth.
+- **Source:** `.squad/decisions/inbox/parker-auth.md`
+
+### 2026-06-16: Mobile readability QA gate clarification
+- **By:** Lambert (Tester)
+- **Decision:** For mobile frontend readability verification tasks, use an explicit narrow viewport check (390px width baseline) and treat `npm run build` + browser interaction as the primary gate. Do not treat `npm run smoke:api` failure as a regression signal unless the API smoke test target (`http://localhost:7071`) is intentionally running.
+- **Rationale:** The readability fix is UI-layout focused. API smoke tests remain valuable but are environment-dependent and should not block frontend-only verification when the local API endpoint is intentionally absent.
+- **Scope:** Testing process guidance for mobile UI verification sessions.
+- **Source:** `.squad/decisions/inbox/lambert-mobile-readability-qa.md`
+
 ## Governance
 
 - All meaningful changes require team consensus

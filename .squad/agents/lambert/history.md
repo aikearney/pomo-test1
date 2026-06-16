@@ -10,3 +10,6 @@
 - 2026-06-15: Current stale signed-in cache risk is that any non-OK `/api/auth/me` response still restores cached auth, so the narrowest validation is a browser test that seeds `pomodoro-auth-cache`, mocks `/api/auth/me` to return `401`, and asserts the app does not remain signed in after logout.
 - 2026-06-15: Current saved-to-home-screen background risk is localStorage-only restoration; the narrowest validation is a browser test that seeds `pomodoro-background` and `pomodoro-background-opacity` before app bootstrap and asserts the background overlay/style is applied on first render after reload.
 - 2026-06-15: No local Dallas/Parker worktree changes were present during this check, so there was no touched slice to revalidate beyond inspecting current main-branch auth/background behavior.
+- 2026-06-16: Verified on 390px viewport that subtasks render in a dedicated section below task-level options and long subtask names wrap without collapsing into an unusable narrow control column.
+- 2026-06-16: `npm run smoke:api` still targets `http://localhost:7071`; failure there is expected when API server is not running and should not be treated as a frontend-only regression signal.
+- 2026-06-16: Independent QA verification passed all mobile readability acceptance criteria with no code changes required.
