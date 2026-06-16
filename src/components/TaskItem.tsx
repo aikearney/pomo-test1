@@ -61,6 +61,7 @@ interface SubtaskItemProps {
   onMoveToTask?: () => void
   canMoveToAnotherTask?: boolean
   onCopyToTask?: () => void
+  isHighPriority?: boolean
 }
 
 const URL_PATTERN = /((?:https?:\/\/|www\.)[^\s]+)/gi
@@ -141,7 +142,8 @@ function SubtaskItem({
   canMoveDown = false,
   onMoveToTask,
   canMoveToAnotherTask = false,
-  onCopyToTask
+  onCopyToTask,
+  isHighPriority = false
 }: SubtaskItemProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [editName, setEditName] = useState(subtask.name)
@@ -251,7 +253,10 @@ function SubtaskItem({
       <Checkbox
         checked={subtask.completed}
         onCheckedChange={onToggleComplete}
-        className="h-4 w-4 mt-0.5 sm:mt-0 shrink-0"
+        className={cn(
+          'h-4 w-4 mt-0.5 sm:mt-0 shrink-0',
+          isHighPriority && !subtask.completed && 'border border-black'
+        )}
       />
       
       {isEditing ? (
@@ -678,7 +683,10 @@ export function TaskItem({
         <Checkbox
           checked={task.completed}
           onCheckedChange={toggleComplete}
-          className="mt-1 relative z-10 cursor-pointer"
+          className={cn(
+            'mt-1 relative z-10 cursor-pointer scale-125 origin-left',
+            task.isHighPriority && !task.completed && 'border border-black'
+          )}
         />
         
         <div className="flex-1 min-w-0">
@@ -798,6 +806,7 @@ export function TaskItem({
                   onMoveToTask={() => setSubtaskToMove(subtask.id)}
                   canMoveToAnotherTask={true}
                   onCopyToTask={() => setSubtaskToCopy(subtask.id)}
+                  isHighPriority={task.isHighPriority}
                 />
                 )
               })}
@@ -887,6 +896,7 @@ export function TaskItem({
                   onMoveToTask={() => setSubtaskToMove(subtask.id)}
                   canMoveToAnotherTask={true}
                   onCopyToTask={() => setSubtaskToCopy(subtask.id)}
+                  isHighPriority={task.isHighPriority}
                 />
                 )
               })}

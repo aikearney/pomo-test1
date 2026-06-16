@@ -3424,7 +3424,7 @@ function App() {
                   </Card>
                 )}
 
-                <ScrollArea className="h-[55vh] sm:h-[400px]">
+                <ScrollArea className="h-[55vh] sm:h-[500px] lg:h-[70vh]">
                   <div className="space-y-2">
                     <AnimatePresence>
                       {isLoadingTasks ? (
