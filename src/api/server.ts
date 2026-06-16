@@ -338,7 +338,21 @@ app.get("/api/lists/:id/tasks", asyncHandler(async (req, res) => {
 
   const orderedResources = resources
     .slice()
-    .sort((a: any, b: any) => Number(a?.createdAt ?? 0) - Number(b?.createdAt ?? 0));
+    .sort((a: any, b: any) => {
+      const aOrder = Number(a?.order);
+      const bOrder = Number(b?.order);
+      const hasAOrder = Number.isFinite(aOrder);
+      const hasBOrder = Number.isFinite(bOrder);
+
+      if (hasAOrder && hasBOrder && aOrder !== bOrder) {
+        return aOrder - bOrder;
+      }
+
+      if (hasAOrder && !hasBOrder) return -1;
+      if (!hasAOrder && hasBOrder) return 1;
+
+      return Number(a?.createdAt ?? 0) - Number(b?.createdAt ?? 0);
+    });
 
   res.status(200).json(orderedResources);
 }));
@@ -394,6 +408,7 @@ app.post("/api/lists/:id/tasks", asyncHandler(async (req, res) => {
     collapsed: Boolean(body.collapsed),
     isHighPriority: body.isHighPriority ?? false,
     recurrence: body.recurrence ?? undefined,
+    order: Number.isFinite(Number(body.order)) ? Number(body.order) : Date.now(),
     createdAt: Date.now(),
   };
 

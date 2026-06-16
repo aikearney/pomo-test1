@@ -21,6 +21,7 @@ import { TaskListSelector } from '@/components/TaskListSelector'
 import { TaskTemplatesDialog } from '@/components/TaskTemplatesDialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Card } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
@@ -89,6 +90,7 @@ const LOCAL_STORAGE_BACKUP_VERSION = 1
 const LOCAL_STORAGE_BACKUP_PREFIX = 'pomodoro-'
 const LOCAL_STORAGE_BACKUP_SPECIAL_KEYS = new Set(['personalTasks'])
 const AUTH_ME_TIMEOUT_MS = 5000
+const AUTH_REFRESH_TIMEOUT_MS = 5000
 const AUTH_LOCAL_MIGRATION_KEY_PREFIX = 'pomodoro-auth-local-migration:'
 
 type LocalStorageBackup = {
@@ -380,6 +382,11 @@ function App() {
   const LOGIN_PROVIDERS = ['google', 'facebook'] as const
 
   const LOCAL_LISTS_KEY = 'pomodoro-local-lists'
+  const BACKGROUND_STORAGE_KEY = 'pomodoro-background'
+  const BACKGROUND_OPACITY_STORAGE_KEY = 'pomodoro-background-opacity'
+
+  const getUserScopedStorageKey = (baseKey: string) =>
+    authUserId ? `${baseKey}:${authUserId}` : baseKey
 
   const isLocalListId = (listId: string | null | undefined) =>
     !!listId && (listId === 'personal' || listId.startsWith('local-'))
@@ -417,6 +424,12 @@ function App() {
       return []
     }
   }
+
+  const normalizeTaskOrder = (inputTasks: Task[]): Task[] =>
+    inputTasks.map((task, index) => ({
+      ...task,
+      order: index,
+    }))
 
   const exportLocalBackup = (filename: string) => {
     const hasApiBackedCurrentList =
@@ -833,11 +846,32 @@ function App() {
       const controller = new AbortController()
       const timeoutId = window.setTimeout(() => controller.abort(), AUTH_ME_TIMEOUT_MS)
 
-      try {
-        const res = await fetch('/api/auth/me', {
+      const fetchAuthState = () =>
+        fetch('/api/auth/me', {
           credentials: 'include',
           signal: controller.signal,
         })
+
+      const attemptSessionRefresh = async () => {
+        try {
+          await fetch('/.auth/refresh', {
+            credentials: 'include',
+            signal: controller.signal,
+          })
+        } catch {
+          // Ignore refresh failures; we still evaluate current auth state below.
+        }
+      }
+
+      try {
+        await attemptSessionRefresh()
+
+        let res = await fetchAuthState()
+        if (res.status === 401 || res.status === 403) {
+          await attemptSessionRefresh()
+          res = await fetchAuthState()
+        }
+
         if (!res.ok) {
           if (!cancelled) {
             if (res.status === 401 || res.status === 403) {
@@ -955,6 +989,34 @@ function App() {
     }
   }, [AUTH_PROVIDER, authCheckNonce])
 
+  useEffect(() => {
+    if (!isAuthenticated) return
+
+    const refreshIntervalMs = 15 * 60 * 1000
+    const intervalId = window.setInterval(() => {
+      const controller = new AbortController()
+      const timeoutId = window.setTimeout(
+        () => controller.abort(),
+        AUTH_REFRESH_TIMEOUT_MS
+      )
+
+      void fetch('/.auth/refresh', {
+        credentials: 'include',
+        signal: controller.signal,
+      })
+        .catch(() => {
+          // Best-effort keepalive; auth check listeners will handle failures.
+        })
+        .finally(() => {
+          window.clearTimeout(timeoutId)
+        })
+    }, refreshIntervalMs)
+
+    return () => {
+      window.clearInterval(intervalId)
+    }
+  }, [isAuthenticated])
+
   // Load lists on mount
   useEffect(() => {
     let cancelled = false
@@ -974,6 +1036,12 @@ function App() {
 
         // Logged-out user -> API returns synthetic personal list; keep all CRUD local.
         if (lists.length === 1 && lists[0].id === 'personal') {
+          applySignedOutAuthState(
+            setIsAuthenticated,
+            setAuthUserId,
+            setAuthDisplayName
+          )
+          setShowLoginOverlay(false)
           setIsAnonymousMode(true)
           const localLists = readLocalLists()
           const mergedLists = [lists[0], ...localLists]
@@ -1017,6 +1085,12 @@ function App() {
         console.error('Error loading lists', err)
         if (cancelled) return
         // API unavailable or unauthenticated locally — fall back to anonymous mode
+        applySignedOutAuthState(
+          setIsAuthenticated,
+          setAuthUserId,
+          setAuthDisplayName
+        )
+        setShowLoginOverlay(false)
         setIsAnonymousMode(true)
         const localLists = readLocalLists()
         const personalList: TaskList = { id: 'personal', name: 'Personal', createdAt: 0 }
@@ -1319,7 +1393,9 @@ function App() {
       if (isAnonymousMode || isLocalListId(currentTaskListId)) {
         const raw = localStorage.getItem(getLocalTasksStorageKey(currentTaskListId))
         const nextTasks = raw ? (JSON.parse(raw) as Task[]) : []
-        setTasks(Array.isArray(nextTasks) ? nextTasks : [])
+        setTasks(
+          normalizeTaskOrder(Array.isArray(nextTasks) ? nextTasks : [])
+        )
         return
       }
 
@@ -1329,7 +1405,7 @@ function App() {
           `/api/lists/${encodeURIComponent(currentTaskListId)}/tasks`
         )
         if (cancelled) return
-        setTasks(listTasks || [])
+        setTasks(normalizeTaskOrder(listTasks || []))
       } catch (err: any) {
         console.error('Error loading tasks', err)
         toast.error('Failed to load tasks', {
@@ -1372,27 +1448,54 @@ function App() {
 
   // const [backgroundImage, setBackgroundImage] = useKV<string | null>('pomodoro-background', null)
   const [backgroundImage, setBackgroundImage] = useState<string | null>(() => {
-    return localStorage.getItem('pomodoro-background')
+    return localStorage.getItem(BACKGROUND_STORAGE_KEY)
   })
+
+  useEffect(() => {
+    const scopedBackground = localStorage.getItem(
+      getUserScopedStorageKey(BACKGROUND_STORAGE_KEY)
+    )
+    const globalBackground = localStorage.getItem(BACKGROUND_STORAGE_KEY)
+    setBackgroundImage(scopedBackground ?? globalBackground)
+  }, [authUserId])
+
   useEffect(() => {
     if (backgroundImage === null) {
-      localStorage.removeItem('pomodoro-background')
+      localStorage.removeItem(BACKGROUND_STORAGE_KEY)
+      localStorage.removeItem(getUserScopedStorageKey(BACKGROUND_STORAGE_KEY))
     } else {
-      localStorage.setItem('pomodoro-background', backgroundImage)
+      localStorage.setItem(BACKGROUND_STORAGE_KEY, backgroundImage)
+      localStorage.setItem(
+        getUserScopedStorageKey(BACKGROUND_STORAGE_KEY),
+        backgroundImage
+      )
     }
-  }, [backgroundImage])
+  }, [authUserId, backgroundImage])
 
   // const [backgroundOpacity, setBackgroundOpacity] = useKV<number>('pomodoro-background-opacity', 0.8)
   const [backgroundOpacity, setBackgroundOpacity] = useState(() => {
-    const saved = localStorage.getItem('pomodoro-background-opacity')
-    return saved ? Number(saved) : 0.8
+    const saved = localStorage.getItem(BACKGROUND_OPACITY_STORAGE_KEY)
+    const parsed = saved ? Number(saved) : 0.8
+    return Number.isFinite(parsed) ? parsed : 0.8
   })
+
   useEffect(() => {
+    const scopedOpacity = localStorage.getItem(
+      getUserScopedStorageKey(BACKGROUND_OPACITY_STORAGE_KEY)
+    )
+    const globalOpacity = localStorage.getItem(BACKGROUND_OPACITY_STORAGE_KEY)
+    const candidate = scopedOpacity ?? globalOpacity
+    const parsed = candidate ? Number(candidate) : 0.8
+    setBackgroundOpacity(Number.isFinite(parsed) ? parsed : 0.8)
+  }, [authUserId])
+
+  useEffect(() => {
+    localStorage.setItem(BACKGROUND_OPACITY_STORAGE_KEY, backgroundOpacity.toString())
     localStorage.setItem(
-      'pomodoro-background-opacity',
+      getUserScopedStorageKey(BACKGROUND_OPACITY_STORAGE_KEY),
       backgroundOpacity.toString()
     )
-  }, [backgroundOpacity])
+  }, [authUserId, backgroundOpacity])
 
   // const [statistics, setStatistics] = useKV<Statistics>('pomodoro-statistics', {...})
   const [statistics, setStatistics] = useState<Statistics>(() => {
@@ -1431,7 +1534,7 @@ function App() {
 
   const timerRef = useRef<number | null>(null)
   const beepingRef = useRef<number | null>(null)
-  const addTaskInputRef = useRef<HTMLInputElement>(null)
+  const addTaskInputRef = useRef<HTMLTextAreaElement>(null)
 
   const [timerState, setTimerState] = useState<TimerState>(() => {
     return getRestoredTimerRuntime().timerState
@@ -1454,6 +1557,13 @@ function App() {
   const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false)
   const [showClearLocalDataDialog, setShowClearLocalDataDialog] = useState(false)
   const [showTemplatesDialog, setShowTemplatesDialog] = useState(false)
+
+  useEffect(() => {
+    const el = addTaskInputRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${Math.min(Math.max(el.scrollHeight, 36), 192)}px`
+  }, [newTaskName, isAddingTask])
 
   // --- TIMER EFFECTS ---
 
@@ -1844,7 +1954,7 @@ function App() {
       subtasks: [],
       completed: false,
       collapsed: false,
-      // @ts-expect-error: listId may not exist yet in your Task type, but backend expects it
+      order: (tasks || []).length,
       listId: currentTaskListId,
     }
 
@@ -1854,7 +1964,7 @@ function App() {
         id: `local-task-${Date.now()}`,
       }
       setTasks((currentTasks) => {
-        const nextTasks = [...(currentTasks || []), localTask]
+        const nextTasks = normalizeTaskOrder([...(currentTasks || []), localTask])
         persistTasksForList(currentTaskListId, nextTasks)
         return nextTasks
       })
@@ -1874,7 +1984,9 @@ function App() {
         }
       )
 
-      setTasks((currentTasks) => [...(currentTasks || []), created])
+      setTasks((currentTasks) =>
+        normalizeTaskOrder([...(currentTasks || []), created])
+      )
       setNewTaskName('')
       setNewTaskIterations('1')
       setIsAddingTask(false)
@@ -1896,7 +2008,7 @@ function App() {
     const payload: Task = {
       ...task,
       id: `temp-${Date.now()}`,
-      // @ts-expect-error: listId may not exist yet in your Task type, but backend expects it
+      order: (tasks || []).length,
       listId: currentTaskListId,
     }
 
@@ -1906,7 +2018,7 @@ function App() {
         id: `local-task-${Date.now()}`,
       }
       setTasks((currentTasks) => {
-        const nextTasks = [...(currentTasks || []), created]
+        const nextTasks = normalizeTaskOrder([...(currentTasks || []), created])
         persistTasksForList(currentTaskListId, nextTasks)
         return nextTasks
       })
@@ -1926,7 +2038,9 @@ function App() {
           body: JSON.stringify(payload),
         }
       )
-      setTasks((currentTasks) => [...(currentTasks || []), created])
+      setTasks((currentTasks) =>
+        normalizeTaskOrder([...(currentTasks || []), created])
+      )
       toast.success('Template added', {
         description: `${
           created.name
@@ -2662,6 +2776,37 @@ function App() {
 
   // --- UI helpers ---
 
+  const persistTaskOrder = async (nextTasks: Task[]) => {
+    const orderedTasks = normalizeTaskOrder(nextTasks)
+
+    if (!currentTaskListId) {
+      return orderedTasks
+    }
+
+    if (isAnonymousMode || isLocalListId(currentTaskListId)) {
+      persistTasksForList(currentTaskListId, orderedTasks)
+      return orderedTasks
+    }
+
+    try {
+      await Promise.all(
+        orderedTasks.map((task) =>
+          apiFetch(`/api/tasks/${encodeURIComponent(task.id)}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ order: task.order }),
+          })
+        )
+      )
+    } catch (err: any) {
+      console.error('Error persisting task order', err)
+      toast.error('Task order could not be saved', {
+        description: err?.message || 'Please try again.',
+      })
+    }
+
+    return orderedTasks
+  }
+
   const toggleAllTasksCollapse = () => {
     const newCollapsedState = !allTasksCollapsed
     setTasks((currentTasks) =>
@@ -2691,23 +2836,26 @@ function App() {
       return
     }
 
-    setTasks((currentTasks) => {
-      const tasks = currentTasks || []
-      const draggedIndex = tasks.findIndex((t) => t.id === draggedTaskId)
-      const targetIndex = tasks.findIndex((t) => t.id === targetTaskId)
+    const currentTasks = tasks || []
+    const draggedIndex = currentTasks.findIndex((t) => t.id === draggedTaskId)
+    const targetIndex = currentTasks.findIndex((t) => t.id === targetTaskId)
 
-      if (draggedIndex === -1 || targetIndex === -1) {
-        return tasks
-      }
+    if (draggedIndex === -1 || targetIndex === -1) {
+      return
+    }
 
-      const newTasks = [...tasks]
-      const [draggedTask] = newTasks.splice(draggedIndex, 1)
-      newTasks.splice(targetIndex, 0, draggedTask)
+    const reorderedTasks = [...currentTasks]
+    const [draggedTask] = reorderedTasks.splice(draggedIndex, 1)
+    reorderedTasks.splice(targetIndex, 0, draggedTask)
 
-      const incompleteTasks = newTasks.filter((t) => !t.completed)
-      const completedTasks = newTasks.filter((t) => t.completed)
-      return [...incompleteTasks, ...completedTasks]
-    })
+    const nextTasks = [
+      ...reorderedTasks.filter((t) => !t.completed),
+      ...reorderedTasks.filter((t) => t.completed),
+    ]
+
+    const orderedTasks = normalizeTaskOrder(nextTasks)
+    setTasks(orderedTasks)
+    void persistTaskOrder(orderedTasks)
 
     setDraggedTaskId(null)
     setDragOverTaskId(null)
@@ -2717,36 +2865,33 @@ function App() {
     taskId: string,
     direction: 'up' | 'down'
   ) => {
-    let didMove = false
+    const currentTasks = tasks || []
+    const taskToMove = currentTasks.find((t) => t.id === taskId)
+    if (!taskToMove) return
 
-    setTasks((currentTasks) => {
-      const tasks = currentTasks || []
-      const taskToMove = tasks.find((t) => t.id === taskId)
-      if (!taskToMove) return tasks
+    const incomplete = currentTasks.filter((t) => !t.completed)
+    const completed = currentTasks.filter((t) => t.completed)
+    const targetGroup = taskToMove.completed ? completed : incomplete
 
-      const incomplete = tasks.filter((t) => !t.completed)
-      const completed = tasks.filter((t) => t.completed)
-      const targetGroup = taskToMove.completed ? completed : incomplete
+    const taskIndex = targetGroup.findIndex((t) => t.id === taskId)
+    if (taskIndex === -1) return
 
-      const taskIndex = targetGroup.findIndex((t) => t.id === taskId)
-      if (taskIndex === -1) return tasks
+    const newIndex = direction === 'up' ? taskIndex - 1 : taskIndex + 1
+    if (newIndex < 0 || newIndex >= targetGroup.length) return
 
-      const newIndex = direction === 'up' ? taskIndex - 1 : taskIndex + 1
-      if (newIndex < 0 || newIndex >= targetGroup.length) return tasks
+    const reorderedGroup = [...targetGroup]
+    const [movedTask] = reorderedGroup.splice(taskIndex, 1)
+    reorderedGroup.splice(newIndex, 0, movedTask)
 
-      didMove = true
-      const reorderedGroup = [...targetGroup]
-      const [movedTask] = reorderedGroup.splice(taskIndex, 1)
-      reorderedGroup.splice(newIndex, 0, movedTask)
+    const nextTasks = taskToMove.completed
+      ? [...incomplete, ...reorderedGroup]
+      : [...reorderedGroup, ...completed]
 
-      return taskToMove.completed
-        ? [...incomplete, ...reorderedGroup]
-        : [...reorderedGroup, ...completed]
-    })
+    const orderedTasks = normalizeTaskOrder(nextTasks)
+    setTasks(orderedTasks)
+    void persistTaskOrder(orderedTasks)
 
-    if (didMove) {
-      toast.success(`Task moved ${direction}`)
-    }
+    toast.success(`Task moved ${direction}`)
   }
 
   const handleBackgroundUpload = (file: File) => {
@@ -2950,7 +3095,7 @@ function App() {
     <>
       <Toaster position="top-center" duration={3000} closeButton />
       <div
-        className="min-h-screen bg-background p-3 sm:p-4 relative"
+        className="min-h-screen bg-background p-3 sm:p-4 relative overflow-x-hidden"
         style={getBackgroundStyle()}
       >
         {backgroundImage && (
@@ -2964,192 +3109,193 @@ function App() {
           />
         )}
 
-        <div
-          className={`mx-auto ${
-            isCompact ? 'max-w-sm' : 'max-w-2xl'
-          } space-y-4 relative z-10`}
-        >
-          <div className="flex items-center justify-between gap-2 flex-wrap">
-            <TaskListSelector
-              taskLists={taskLists || []}
-              currentTaskListId={currentTaskListId || 'default'}
-              onSelectTaskList={setCurrentTaskListId}
-              onCreateTaskList={createTaskList}
-              onRenameTaskList={renameTaskList}
-              onDeleteTaskList={deleteTaskList}
-              onDuplicateTaskList={duplicateTaskList}
-              onArchiveTaskList={archiveTaskList}
-              onUnarchiveTaskList={unarchiveTaskList}
-              onUncompleteAllTasksInList={uncompleteAllTasksInList}
-              onShowStatistics={() => setShowStatistics(true)}
-              backgroundImage={backgroundImage || null}
-              backgroundOpacity={backgroundOpacity || 0.8}
-              onBackgroundChange={setBackgroundImage}
-              onOpacityChange={setBackgroundOpacity}
-              onUpload={handleBackgroundUpload}
-              onExportLocalData={exportLocalBackup}
-              onImportLocalData={importLocalBackup}
-              isAnonymousMode={isAnonymousMode}
-              isAuthenticated={isAuthenticated}
-              onLogin={() => setShowLoginOverlay(true)}
-              onLogout={redirectToLogout}
-            />
-            {!isCompact && (
-              <h1 className="hidden md:block font-display text-2xl font-bold text-foreground absolute left-1/2 -translate-x-1/2">
-                Pomodoro Timer
-              </h1>
-            )}
+        <div className="relative z-10">
+          {/* Timer and Controls Section */}
+          <div className={`mx-auto ${isCompact ? 'max-w-sm' : 'max-w-2xl'} space-y-4`}>
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <TaskListSelector
+                taskLists={taskLists || []}
+                currentTaskListId={currentTaskListId || 'default'}
+                onSelectTaskList={setCurrentTaskListId}
+                onCreateTaskList={createTaskList}
+                onRenameTaskList={renameTaskList}
+                onDeleteTaskList={deleteTaskList}
+                onDuplicateTaskList={duplicateTaskList}
+                onArchiveTaskList={archiveTaskList}
+                onUnarchiveTaskList={unarchiveTaskList}
+                onUncompleteAllTasksInList={uncompleteAllTasksInList}
+                onShowStatistics={() => setShowStatistics(true)}
+                backgroundImage={backgroundImage || null}
+                backgroundOpacity={backgroundOpacity || 0.8}
+                onBackgroundChange={setBackgroundImage}
+                onOpacityChange={setBackgroundOpacity}
+                onUpload={handleBackgroundUpload}
+                onExportLocalData={exportLocalBackup}
+                onImportLocalData={importLocalBackup}
+                isAnonymousMode={isAnonymousMode}
+                isAuthenticated={isAuthenticated}
+                onLogin={() => setShowLoginOverlay(true)}
+                onLogout={redirectToLogout}
+              />
+              {!isCompact && (
+                <h1 className="hidden md:block font-display text-2xl font-bold text-foreground absolute left-1/2 -translate-x-1/2">
+                  Pomodoro Timer
+                </h1>
+              )}
 
-            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleRefreshFromDatabase}
-                title="Refresh from database"
-              >
-                <ArrowClockwise size={20} />
-              </Button>
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleRefreshFromDatabase}
+                  title="Refresh from database"
+                >
+                  <ArrowClockwise size={20} />
+                </Button>
 
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleLoginClick}
-                title={isAuthenticated ? 'Logout' : 'Login'}
-              >
-                {isAuthenticated ? 'Logout' : 'Login'}
-              </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleLoginClick}
+                  title={isAuthenticated ? 'Logout' : 'Login'}
+                >
+                  {isAuthenticated ? 'Logout' : 'Login'}
+                </Button>
 
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setIsCompact((c) => !c)}
-                title={isCompact ? 'Expand view' : 'Compact view'}
-              >
-                {isCompact ? <SquaresFour size={20} /> : <ListDashes size={20} />}
-              </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setIsCompact((c) => !c)}
+                  title={isCompact ? 'Expand view' : 'Compact view'}
+                >
+                  {isCompact ? <SquaresFour size={20} /> : <ListDashes size={20} />}
+                </Button>
 
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => {
-                  setIsMuted((m) => {
-                    const newMutedState = !m
-                    if (newMutedState) {
-                      toast.warning('Sound muted', {
-                        description:
-                          'You will not hear alerts when sessions complete',
-                      })
-                    } else {
-                      toast.success('Sound enabled', {
-                        description:
-                          'You will hear alerts when sessions complete',
-                      })
-                    }
-                    return newMutedState
-                  })
-                }}
-                title={isMuted ? 'Unmute' : 'Mute'}
-              >
-                {isMuted ? <BellSlash size={20} /> : <Bell size={20} />}
-              </Button>
-            </div>
-          </div>
-
-          {isAuthenticated && authDisplayName && (
-            <p className="text-xs text-muted-foreground text-right -mt-2">
-              Signed in as {authDisplayName}
-            </p>
-          )}
-
-          {showLocalModeWarning && (
-            <Card className="p-3 border-amber-300/60 bg-amber-50/70">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-sm text-amber-900">
-                  {isAuthenticated
-                    ? 'Offline/local mode is active. Your latest changes are kept on this device and will sync when cloud access is available.'
-                    : 'You are using local mode while logged out. Lists and tasks stay visible, but changes may not persist across devices unless you sign in.'}
-                </p>
-                {!isAuthenticated && (
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => setShowClearLocalDataDialog(true)}
-                  >
-                    Clear Local Data
-                  </Button>
-                )}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    setIsMuted((m) => {
+                      const newMutedState = !m
+                      if (newMutedState) {
+                        toast.warning('Sound muted', {
+                          description:
+                            'You will not hear alerts when sessions complete',
+                        })
+                      } else {
+                        toast.success('Sound enabled', {
+                          description:
+                            'You will hear alerts when sessions complete',
+                        })
+                      }
+                      return newMutedState
+                    })
+                  }}
+                  title={isMuted ? 'Unmute' : 'Mute'}
+                >
+                  {isMuted ? <BellSlash size={20} /> : <Bell size={20} />}
+                </Button>
               </div>
-            </Card>
-          )}
+            </div>
 
-          <TimerDisplay
-            phase={timerState.phase}
-            remainingSeconds={timerState.remainingSeconds}
-            completedIterations={timerState.completedIterations}
-            isCompact={isCompact}
-            isRunning={timerState.isRunning}
-            isMuted={isMuted}
-          />
-
-          {timerState.phase !== 'idle' && (
-            <Card
-              className={`p-3 bg-accent/10 border-accent ${
-                isCompact ? 'p-2' : 'p-3'
-              }`}
-            >
-              <p
-                className={`text-muted-foreground ${
-                  isCompact ? 'text-xs' : 'text-sm'
-                }`}
-              >
-                Current Task
-                {currentTaskListName && (
-                  <span className="ml-2 text-xs opacity-70">
-                    ({currentTaskListName})
-                  </span>
-                )}
+            {isAuthenticated && authDisplayName && (
+              <p className="text-xs text-muted-foreground text-right -mt-2">
+                Signed in as {authDisplayName}
               </p>
-              <p
-                className={`font-medium ${
-                  isCompact ? 'text-sm' : ''
-                }`}
-              >
-                {currentTask
-                  ? currentTask.name
-                  : 'Focus Session (No task selected)'}
-              </p>
-            </Card>
-          )}
-
-          <div className="flex flex-col sm:flex-row gap-2">
-            {!timerState.isRunning ? (
-              <Button onClick={startTimer} className="flex-1" size="lg">
-                <Play size={20} className="mr-2" />
-                {timerState.phase === 'idle' ? 'Start' : 'Resume'}
-              </Button>
-            ) : (
-              <Button
-                onClick={pauseTimer}
-                variant="secondary"
-                className="flex-1"
-                size="lg"
-              >
-                <Pause size={20} className="mr-2" />
-                Pause
-              </Button>
             )}
+
+            {showLocalModeWarning && (
+              <Card className="p-3 border-amber-300/60 bg-amber-50/70">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm text-amber-900">
+                    {isAuthenticated
+                      ? 'Offline/local mode is active. Your latest changes are kept on this device and will sync when cloud access is available.'
+                      : 'You are using local mode while logged out. Lists and tasks stay visible, but changes may not persist across devices unless you sign in.'}
+                  </p>
+                  {!isAuthenticated && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => setShowClearLocalDataDialog(true)}
+                    >
+                      Clear Local Data
+                    </Button>
+                  )}
+                </div>
+              </Card>
+            )}
+
+            <TimerDisplay
+              phase={timerState.phase}
+              remainingSeconds={timerState.remainingSeconds}
+              completedIterations={timerState.completedIterations}
+              isCompact={isCompact}
+              isRunning={timerState.isRunning}
+              isMuted={isMuted}
+            />
 
             {timerState.phase !== 'idle' && (
-              <Button onClick={stopTimer} variant="outline" size="lg">
-                <Stop size={20} />
-              </Button>
+              <Card
+                className={`p-3 bg-accent/10 border-accent ${
+                  isCompact ? 'p-2' : 'p-3'
+                }`}
+              >
+                <p
+                  className={`text-muted-foreground ${
+                    isCompact ? 'text-xs' : 'text-sm'
+                  }`}
+                >
+                  Current Task
+                  {currentTaskListName && (
+                    <span className="ml-2 text-xs opacity-70">
+                      ({currentTaskListName})
+                    </span>
+                  )}
+                </p>
+                <p
+                  className={`font-medium ${
+                    isCompact ? 'text-sm' : ''
+                  }`}
+                >
+                  {currentTask
+                    ? currentTask.name
+                    : 'Focus Session (No task selected)'}
+                </p>
+              </Card>
             )}
+
+            <div className="flex flex-col sm:flex-row gap-2">
+              {!timerState.isRunning ? (
+                <Button onClick={startTimer} className="flex-1" size="lg">
+                  <Play size={20} className="mr-2" />
+                  {timerState.phase === 'idle' ? 'Start' : 'Resume'}
+                </Button>
+              ) : (
+                <Button
+                  onClick={pauseTimer}
+                  variant="secondary"
+                  className="flex-1"
+                  size="lg"
+                >
+                  <Pause size={20} className="mr-2" />
+                  Pause
+                </Button>
+              )}
+
+              {timerState.phase !== 'idle' && (
+                <Button onClick={stopTimer} variant="outline" size="lg">
+                  <Stop size={20} />
+                </Button>
+              )}
+            </div>
           </div>
 
           {!isCompact && (
             <>
-              <Separator />
-              <div className="space-y-3">
+              <Separator className="mt-4" />
+              {/* Tasks Section - Can expand wider */}
+              <div className="mx-auto max-w-5xl space-y-4 mt-4">
+                <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
                     <h2 className="font-medium">Tasks</h2>
@@ -3201,14 +3347,21 @@ function App() {
                   <Card className="p-3">
                     <div className="flex flex-col sm:flex-row gap-2">
                       <div className="flex gap-2 flex-1">
-                        <Input
+                        <Textarea
                           ref={addTaskInputRef}
                           id="task-name"
+                          rows={1}
                           placeholder="Task name"
                           value={newTaskName}
-                          onChange={(e) => setNewTaskName(e.target.value)}
+                          onChange={(e) => {
+                            setNewTaskName(e.target.value)
+                            const el = e.target
+                            el.style.height = 'auto'
+                            el.style.height = `${Math.min(Math.max(el.scrollHeight, 36), 192)}px`
+                          }}
                           onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault()
                               void addTask()
                               setIsAddingTask(true)
                               setTimeout(
@@ -3217,7 +3370,7 @@ function App() {
                               )
                             }
                           }}
-                          className="flex-1 min-w-0"
+                          className="flex-1 min-w-0 min-h-9 max-h-36 resize-none overflow-y-auto overflow-x-hidden [overflow-wrap:anywhere] py-1"
                           autoFocus
                         />
                         <Input
@@ -3402,6 +3555,7 @@ function App() {
                   </div>
                 </ScrollArea>
               </div>
+            </div>
             </>
           )}
         </div>

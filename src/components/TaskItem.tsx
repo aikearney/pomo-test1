@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Task, Subtask, RecurrenceSettings } from '@/lib/types'
 import { calculateTaskIterations, formatTimeDisplay, calculateTotalTime, formatRecurrenceDescription, getTimeUntilReactivation } from '@/lib/timer-utils'
 import { Button } from '@/components/ui/button'
@@ -63,6 +63,72 @@ interface SubtaskItemProps {
   onCopyToTask?: () => void
 }
 
+const URL_PATTERN = /((?:https?:\/\/|www\.)[^\s]+)/gi
+
+function normalizeHref(candidate: string): string {
+  return /^https?:\/\//i.test(candidate) ? candidate : `https://${candidate}`
+}
+
+function renderTextWithLinks(
+  text: string,
+  className: string,
+  onPlainTextClick?: (e: React.MouseEvent) => void
+): ReactNode {
+  const wrappedClassName = `${className} break-all [overflow-wrap:anywhere]`
+
+  const matches = Array.from(text.matchAll(URL_PATTERN))
+  if (matches.length === 0) {
+    return (
+      <span onClick={onPlainTextClick} className={wrappedClassName}>
+        {text}
+      </span>
+    )
+  }
+
+  const nodes: ReactNode[] = []
+  let lastIndex = 0
+
+  matches.forEach((match, index) => {
+    const rawUrl = match[0]
+    const start = match.index ?? 0
+    const end = start + rawUrl.length
+
+    if (start > lastIndex) {
+      nodes.push(
+        <span key={`text-${start}-${index}`}>{text.slice(lastIndex, start)}</span>
+      )
+    }
+
+    const href = normalizeHref(rawUrl)
+    nodes.push(
+      <a
+        key={`url-${start}-${index}`}
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={(e) => e.stopPropagation()}
+        className="text-primary underline underline-offset-2 break-all [overflow-wrap:anywhere]"
+      >
+        {rawUrl}
+      </a>
+    )
+
+    lastIndex = end
+  })
+
+  if (lastIndex < text.length) {
+    nodes.push(
+      <span key={`text-tail-${lastIndex}`}>{text.slice(lastIndex)}</span>
+    )
+  }
+
+  return (
+    <span onClick={onPlainTextClick} className={wrappedClassName}>
+      {nodes}
+    </span>
+  )
+}
+
 function SubtaskItem({
   subtask,
   onUpdate,
@@ -82,6 +148,7 @@ function SubtaskItem({
   const [editIterations, setEditIterations] = useState(subtask.iterations.toString())
   const rowRef = useRef<HTMLDivElement>(null)
   const editNameRef = useRef<HTMLTextAreaElement>(null)
+  const editorIdRef = useRef(`subtask-edit-${subtask.id}`)
   const [rowWidth, setRowWidth] = useState(0)
 
   const resizeTextarea = (element: HTMLTextAreaElement | null) => {
@@ -160,9 +227,12 @@ function SubtaskItem({
   }
 
   const handleBlur = () => {
+    const editorId = editorIdRef.current
     setTimeout(() => {
       const activeElement = document.activeElement
-      const isStillInEditMode = activeElement?.closest('.subtask-edit-container')
+      const isStillInEditMode = activeElement?.closest(
+        `[data-editor-id="${editorId}"]`
+      )
       
       if (!isStillInEditMode) {
         saveEditing(false)
@@ -185,7 +255,10 @@ function SubtaskItem({
       />
       
       {isEditing ? (
-        <div className="flex flex-1 min-w-0 items-start gap-2 overflow-hidden subtask-edit-container">
+        <div
+          className="flex flex-1 min-w-0 items-start gap-2 overflow-hidden subtask-edit-container"
+          data-editor-id={editorIdRef.current}
+        >
           <Textarea
             ref={editNameRef}
             value={editName}
@@ -201,7 +274,7 @@ function SubtaskItem({
               }
             }}
             onBlur={handleBlur}
-            className="min-h-[2.5rem] max-h-36 resize-none overflow-y-auto text-base leading-tight flex-1 min-w-0"
+            className="min-h-[2.5rem] max-h-36 resize-none overflow-y-auto overflow-x-hidden [overflow-wrap:anywhere] text-base leading-tight flex-1 min-w-0"
             placeholder="Subtask name"
             autoFocus
           />
@@ -222,15 +295,16 @@ function SubtaskItem({
       ) : (
         <div className={cn('grid flex-1 min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start', gridGapClass)}>
           <div className="min-w-0">
-            <span
-              onClick={startEditing}
-              className={cn(
-                'block w-full whitespace-normal break-words text-xs leading-snug cursor-pointer hover:text-accent transition-colors',
-                subtask.completed && 'line-through text-muted-foreground'
+            <div className="block w-full whitespace-normal break-words [overflow-wrap:anywhere] text-xs leading-snug">
+              {renderTextWithLinks(
+                subtask.name,
+                cn(
+                  'cursor-pointer hover:text-accent transition-colors',
+                  subtask.completed && 'line-through text-muted-foreground'
+                ),
+                startEditing
               )}
-            >
-              {subtask.name}
-            </span>
+            </div>
           </div>
           <div className={cn('flex max-w-full items-center shrink-0', controlGapClass)}>
             {showInlineMoveButtons && (
@@ -349,6 +423,7 @@ export function TaskItem({
   const [subtaskToMove, setSubtaskToMove] = useState<string | null>(null)
   const [subtaskToCopy, setSubtaskToCopy] = useState<string | null>(null)
   const subtaskInputRef = useRef<HTMLTextAreaElement>(null)
+  const editorIdRef = useRef(`task-edit-${task.id}`)
 
   const resizeTextarea = (element: HTMLTextAreaElement | null) => {
     if (!element) return
@@ -525,9 +600,12 @@ export function TaskItem({
   }
 
   const handleBlur = () => {
+    const editorId = editorIdRef.current
     setTimeout(() => {
       const activeElement = document.activeElement
-      const isStillInEditMode = activeElement?.closest('.task-edit-container')
+      const isStillInEditMode = activeElement?.closest(
+        `[data-editor-id="${editorId}"]`
+      )
       
       if (!isStillInEditMode) {
         saveEditing(false)
@@ -580,7 +658,7 @@ export function TaskItem({
         onDrop?.()
       }}
       className={cn(
-        'border rounded-lg p-2.5 sm:p-3 transition-all relative',
+        'border rounded-lg p-2.5 sm:p-3 transition-all relative max-w-full overflow-x-hidden',
         isActive ? 'border-accent bg-accent/5 ring-2 ring-accent/20' : 'border-border bg-card',
         task.completed && 'opacity-60',
         task.isHighPriority && !task.completed && 'border-primary bg-primary/5',
@@ -605,16 +683,25 @@ export function TaskItem({
         
         <div className="flex-1 min-w-0">
           {isEditing ? (
-            <div className="flex items-center gap-2 task-edit-container">
-              <Input
+            <div
+              className="flex items-center gap-2 task-edit-container"
+              data-editor-id={editorIdRef.current}
+            >
+              <Textarea
                 value={editName}
-                onChange={(e) => setEditName(e.target.value)}
+                onChange={(e) => {
+                  setEditName(e.target.value)
+                  resizeTextarea(e.target)
+                }}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') saveEditing(true)
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    saveEditing(true)
+                  }
                   if (e.key === 'Escape') cancelEditing()
                 }}
                 onBlur={handleBlur}
-                className="h-10 text-base flex-1 min-w-0"
+                className="min-h-[2.5rem] max-h-36 resize-none overflow-y-auto overflow-x-hidden [overflow-wrap:anywhere] text-base leading-tight flex-1 min-w-0"
                 placeholder="Task name"
                 autoFocus
               />
@@ -639,49 +726,55 @@ export function TaskItem({
               )}
             </div>
           ) : (
-            <div className="flex items-center gap-2 flex-wrap">
-              {task.isHighPriority && !task.completed && (
-                <Star size={16} weight="fill" className="text-primary" />
-              )}
-              <span
-                onClick={startEditing}
-                className={cn(
-                  'font-medium text-base md:text-sm cursor-pointer hover:text-accent transition-colors',
-                  task.completed && 'line-through text-muted-foreground'
+            <div className="min-w-0 w-full space-y-1">
+              <div className="flex items-start gap-2 min-w-0 w-full">
+                {task.isHighPriority && !task.completed && (
+                  <Star size={16} weight="fill" className="text-primary mt-0.5 shrink-0" />
                 )}
-              >
-                {task.name}
-              </span>
-              <Badge 
-                variant="secondary" 
-                className="text-[10px] md:text-xs cursor-pointer hover:bg-accent/20 transition-colors px-1.5 md:px-2.5 h-5 md:h-auto"
-                onClick={startEditing}
-              >
-                <span className="md:hidden">{totalIterations}×</span>
-                <span className="hidden md:inline">{totalIterations} {totalIterations === 1 ? 'iteration' : 'iterations'}</span>
-              </Badge>
-              <span className="text-[10px] md:text-xs text-muted-foreground">
-                {formatTimeDisplay(timeCalc.days, timeCalc.hours, timeCalc.minutes)}
-              </span>
-              {task.recurrence?.enabled && (
+                <div className="font-medium text-base md:text-sm min-w-0 flex-1 [overflow-wrap:anywhere] break-words">
+                  {renderTextWithLinks(
+                    task.name,
+                    cn(
+                      'cursor-pointer hover:text-accent transition-colors',
+                      task.completed && 'line-through text-muted-foreground'
+                    ),
+                    startEditing
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap min-w-0">
                 <Badge 
-                  variant="outline" 
-                  className="text-[10px] md:text-xs gap-1 px-1.5 md:px-2.5 h-5 md:h-auto border-primary/50 text-primary cursor-pointer"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setShowRecurrenceDialog(true)
-                  }}
-                  title={timeUntilReactivation || undefined}
+                  variant="secondary" 
+                  className="text-[10px] md:text-xs cursor-pointer hover:bg-accent/20 transition-colors px-1.5 md:px-2.5 h-5 md:h-auto"
+                  onClick={startEditing}
                 >
-                  <ArrowClockwise size={12} weight="bold" />
-                  <span className="hidden md:inline">{formatRecurrenceDescription(task.recurrence.interval, task.recurrence.unit)}</span>
+                  <span className="md:hidden">{totalIterations}×</span>
+                  <span className="hidden md:inline">{totalIterations} {totalIterations === 1 ? 'iteration' : 'iterations'}</span>
                 </Badge>
-              )}
-              {task.completed && task.recurrence?.enabled && timeUntilReactivation && (
-                <span className="text-[10px] text-muted-foreground">
-                  {timeUntilReactivation}
+                <span className="text-[10px] md:text-xs text-muted-foreground">
+                  {formatTimeDisplay(timeCalc.days, timeCalc.hours, timeCalc.minutes)}
                 </span>
-              )}
+                {task.recurrence?.enabled && (
+                  <Badge 
+                    variant="outline" 
+                    className="text-[10px] md:text-xs gap-1 px-1.5 md:px-2.5 h-5 md:h-auto border-primary/50 text-primary cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setShowRecurrenceDialog(true)
+                    }}
+                    title={timeUntilReactivation || undefined}
+                  >
+                    <ArrowClockwise size={12} weight="bold" />
+                    <span className="hidden md:inline">{formatRecurrenceDescription(task.recurrence.interval, task.recurrence.unit)}</span>
+                  </Badge>
+                )}
+                {task.completed && task.recurrence?.enabled && timeUntilReactivation && (
+                  <span className="text-[10px] text-muted-foreground">
+                    {timeUntilReactivation}
+                  </span>
+                )}
+              </div>
             </div>
           )}
 
@@ -731,7 +824,7 @@ export function TaskItem({
                     setIsAddingSubtask(false)
                   }
                 }}
-                className="min-h-[2.5rem] max-h-48 resize-none overflow-y-auto text-sm leading-snug flex-1 min-w-0"
+                className="min-h-[2.5rem] max-h-48 resize-none overflow-y-auto overflow-x-hidden [overflow-wrap:anywhere] text-sm leading-snug flex-1 min-w-0"
                 autoFocus
               />
               <Input

@@ -24,6 +24,8 @@ export interface RecurrenceSettings {
 export interface Task {
   id: string
   name: string
+  listId?: string
+  order?: number
   iterations: number
   subtasks: Subtask[]
   completed: boolean
