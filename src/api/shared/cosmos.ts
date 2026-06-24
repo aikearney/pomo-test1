@@ -4,6 +4,7 @@ import { DefaultAzureCredential } from "@azure/identity";
 const DEFAULT_DATABASE_ID = "tasks-db";
 const DEFAULT_LISTS_CONTAINER_ID = "lists";
 const DEFAULT_TASKS_CONTAINER_ID = "tasks";
+const DEFAULT_USER_PREFERENCES_CONTAINER_ID = "user-preferences";
 
 let client: CosmosClient | undefined;
 let database: Database | undefined;
@@ -92,5 +93,15 @@ export function getListsContainer(): Container {
 export function getTasksContainer(): Container {
 	return getDatabase().container(
 		getOptionalSetting(DEFAULT_TASKS_CONTAINER_ID, "COSMOS_TASKS_CONTAINER_ID", "COSMOS_TASKS_CONTAINER_NAME"),
+	);
+}
+
+export function getUserPreferencesContainer(): Container {
+	return getDatabase().container(
+		getOptionalSetting(
+			DEFAULT_USER_PREFERENCES_CONTAINER_ID,
+			"COSMOS_USER_PREFERENCES_CONTAINER_ID",
+			"COSMOS_USER_PREFERENCES_CONTAINER_NAME",
+		),
 	);
 }

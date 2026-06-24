@@ -61,6 +61,20 @@
 - **Scope:** Testing process guidance for mobile UI verification sessions.
 - **Source:** `.squad/decisions/inbox/lambert-mobile-readability-qa.md`
 
+### 2026-06-24: Frontend UX guardrails for list and timer flows
+- **By:** Dallas
+- **Decision:** Apply non-visual frontend behavior refinements: only allow moving subtasks into incomplete tasks, auto-collapse tasks whenever a list is opened/switched, add an explicit timer-completion dismiss control that stops beeping without forcing break decisions, and allow session-level dismissal of the logged-out local mode notice.
+- **Rationale:** Reduces accidental actions and navigation friction while preserving current UI language and backend contracts.
+- **Scope:** Frontend behavior and minor content/spacing adjustments only; no API contract, schema, or backend runtime changes.
+- **Source:** `.squad/decisions/inbox/dallas-ui-flow-polish-2026-06-24.md`
+
+### 2026-06-24: Unified Easy Auth fallback for CRUD and server-side user preferences
+- **By:** Parker
+- **Decision:** Require identity-dependent REST endpoints to resolve user identity through a shared helper that first reads trusted Easy Auth headers and then falls back to `/.auth/me` when headers are unavailable; add a Cosmos-backed `/api/preferences` contract for per-user UI preferences used by frontend background settings.
+- **Rationale:** Header-only checks can fail in some App Service proxy/session paths after browser restart; shared fallback keeps auth behavior consistent with `/api/auth/me`, and server-side preferences make background selection durable across devices.
+- **Scope:** `src/api/server.ts`, `src/api/shared/cosmos.ts`, and frontend preference handshake in `src/App.tsx`.
+- **Source:** `.squad/decisions/inbox/parker-auth-preferences-session-fallback.md`
+
 ## Governance
 
 - All meaningful changes require team consensus

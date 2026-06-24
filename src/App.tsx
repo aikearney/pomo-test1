@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import type React from 'react'
 // import { useKV } from '@github/spark/hooks'
 import { Task, TimerState, Statistics, TaskList } from '@/lib/types'
+import { cn } from '@/lib/utils'
 import {
   calculateTotalIterations,
   calculateTotalTime,
@@ -53,6 +54,7 @@ import {
   CaretDown,
   TrashSimple,
   Books,
+  X,
 } from '@phosphor-icons/react'
 import { toast, Toaster } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -194,6 +196,11 @@ type AuthCache = {
   userId: string
   displayName: string | null
   cachedAt: number
+}
+
+type UserPreferences = {
+  backgroundImage: string | null
+  backgroundOpacity: number
 }
 
 function createDefaultTimerState(): TimerState {
@@ -376,6 +383,7 @@ function App() {
   const [refreshNonce, setRefreshNonce] = useState(0)
   const [authCheckNonce, setAuthCheckNonce] = useState(0)
   const [isAuthStateResolved, setIsAuthStateResolved] = useState(false)
+  const [hasLoadedServerPreferences, setHasLoadedServerPreferences] = useState(false)
   const lastBackupFileHandleRef = useRef<any | null>(null)
 
   const AUTH_PROVIDER = (import.meta.env.VITE_AUTH_PROVIDER || 'aad').trim()
@@ -1393,9 +1401,11 @@ function App() {
       if (isAnonymousMode || isLocalListId(currentTaskListId)) {
         const raw = localStorage.getItem(getLocalTasksStorageKey(currentTaskListId))
         const nextTasks = raw ? (JSON.parse(raw) as Task[]) : []
-        setTasks(
-          normalizeTaskOrder(Array.isArray(nextTasks) ? nextTasks : [])
-        )
+        const collapsedTasks = normalizeTaskOrder(
+          Array.isArray(nextTasks) ? nextTasks : []
+        ).map((task) => ({ ...task, collapsed: true }))
+        setTasks(collapsedTasks)
+        setAllTasksCollapsed(true)
         return
       }
 
@@ -1405,7 +1415,12 @@ function App() {
           `/api/lists/${encodeURIComponent(currentTaskListId)}/tasks`
         )
         if (cancelled) return
-        setTasks(normalizeTaskOrder(listTasks || []))
+        const collapsedTasks = normalizeTaskOrder(listTasks || []).map((task) => ({
+          ...task,
+          collapsed: true,
+        }))
+        setTasks(collapsedTasks)
+        setAllTasksCollapsed(true)
       } catch (err: any) {
         console.error('Error loading tasks', err)
         toast.error('Failed to load tasks', {
@@ -1497,6 +1512,91 @@ function App() {
     )
   }, [authUserId, backgroundOpacity])
 
+  useEffect(() => {
+    let cancelled = false
+
+    const loadServerPreferences = async () => {
+      if (!isAuthStateResolved || !isAuthenticated || isAnonymousMode) {
+        setHasLoadedServerPreferences(false)
+        return
+      }
+
+      try {
+        const prefs = await apiFetch<UserPreferences>('/api/preferences')
+        if (cancelled) return
+
+        if (Object.prototype.hasOwnProperty.call(prefs, 'backgroundImage')) {
+          setBackgroundImage(
+            typeof prefs.backgroundImage === 'string' ? prefs.backgroundImage : null
+          )
+        }
+
+        if (Object.prototype.hasOwnProperty.call(prefs, 'backgroundOpacity')) {
+          const parsed = Number(prefs.backgroundOpacity)
+          if (Number.isFinite(parsed)) {
+            setBackgroundOpacity(Math.min(1, Math.max(0, parsed)))
+          }
+        }
+
+        setHasLoadedServerPreferences(true)
+      } catch (err) {
+        if (!cancelled) {
+          console.error('Error loading server preferences', err)
+          setHasLoadedServerPreferences(true)
+        }
+      }
+    }
+
+    void loadServerPreferences()
+
+    return () => {
+      cancelled = true
+    }
+  }, [isAuthStateResolved, isAuthenticated, isAnonymousMode, authUserId])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const saveServerPreferences = async () => {
+      if (
+        !isAuthStateResolved ||
+        !isAuthenticated ||
+        isAnonymousMode ||
+        !hasLoadedServerPreferences
+      ) {
+        return
+      }
+
+      try {
+        await apiFetch('/api/preferences', {
+          method: 'PATCH',
+          body: JSON.stringify({
+            backgroundImage,
+            backgroundOpacity,
+          }),
+        })
+      } catch (err) {
+        if (!cancelled) {
+          console.error('Error saving server preferences', err)
+        }
+      }
+    }
+
+    void saveServerPreferences()
+
+    return () => {
+      cancelled = true
+    }
+  }, [
+    isAuthStateResolved,
+    isAuthenticated,
+    isAnonymousMode,
+    hasLoadedServerPreferences,
+    backgroundImage,
+    backgroundOpacity,
+    authUserId,
+  ])
+
   // const [statistics, setStatistics] = useKV<Statistics>('pomodoro-statistics', {...})
   const [statistics, setStatistics] = useState<Statistics>(() => {
     const saved = localStorage.getItem('pomodoro-statistics')
@@ -1557,6 +1657,15 @@ function App() {
   const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false)
   const [showClearLocalDataDialog, setShowClearLocalDataDialog] = useState(false)
   const [showTemplatesDialog, setShowTemplatesDialog] = useState(false)
+  const [isLocalModeNoticeCollapsed, setIsLocalModeNoticeCollapsed] = useState(false)
+
+  const handleSelectTaskList = (listId: string) => {
+    setCurrentTaskListId(listId)
+    setAllTasksCollapsed(true)
+    setTasks((currentTasks) =>
+      (currentTasks || []).map((task) => ({ ...task, collapsed: true }))
+    )
+  }
 
   useEffect(() => {
     const el = addTaskInputRef.current
@@ -1930,6 +2039,20 @@ function App() {
         description: 'Continuing work session',
       })
     }
+  }
+
+  const handleDismissAcknowledgment = () => {
+    if (beepingRef.current) {
+      stopContinuousBeeping(beepingRef.current)
+      beepingRef.current = null
+    }
+
+    setTimerState((prev) => ({
+      ...prev,
+      needsAcknowledgment: false,
+      isRunning: false,
+    }))
+    setShowAcknowledgmentDialog(false)
   }
 
   // --- REST-backed TASK CRUD ---
@@ -2412,7 +2535,12 @@ function App() {
     const sourceTask = (tasks || []).find((t) => t.subtasks.some((st) => st.id === subtaskId))
     const targetTask = (tasks || []).find((t) => t.id === targetTaskId)
     
-    if (!sourceTask || !targetTask || sourceTask.id === targetTaskId) {
+    if (
+      !sourceTask ||
+      !targetTask ||
+      targetTask.completed ||
+      sourceTask.id === targetTaskId
+    ) {
       toast.error('Cannot move subtask', {
         description: 'Invalid source or target task',
       })
@@ -3048,6 +3176,12 @@ function App() {
       (isLoadingTasks && tasksList.length === 0))
   const showLocalModeWarning = isAnonymousMode || !isAuthenticated
 
+  useEffect(() => {
+    if (!showLocalModeWarning) {
+      setIsLocalModeNoticeCollapsed(false)
+    }
+  }, [showLocalModeWarning])
+
   const clearLocalTaskData = () => {
     const keysToRemove: string[] = []
 
@@ -3116,7 +3250,7 @@ function App() {
               <TaskListSelector
                 taskLists={taskLists || []}
                 currentTaskListId={currentTaskListId || 'default'}
-                onSelectTaskList={setCurrentTaskListId}
+                onSelectTaskList={handleSelectTaskList}
                 onCreateTaskList={createTaskList}
                 onRenameTaskList={renameTaskList}
                 onDeleteTaskList={deleteTaskList}
@@ -3205,23 +3339,58 @@ function App() {
             )}
 
             {showLocalModeWarning && (
-              <Card className="p-3 border-amber-300/60 bg-amber-50/70">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-sm text-amber-900">
-                    {isAuthenticated
-                      ? 'Offline/local mode is active. Your latest changes are kept on this device and will sync when cloud access is available.'
-                      : 'You are using local mode while logged out. Lists and tasks stay visible, but changes may not persist across devices unless you sign in.'}
-                  </p>
-                  {!isAuthenticated && (
+              <Collapsible open={!isLocalModeNoticeCollapsed} onOpenChange={(open) => setIsLocalModeNoticeCollapsed(!open)}>
+                <Card className="p-3 border-amber-300/60 bg-amber-50/70">
+                  <CollapsibleTrigger asChild>
                     <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => setShowClearLocalDataDialog(true)}
+                      variant="ghost"
+                      className="w-full flex items-center justify-start gap-2 p-0 h-auto hover:bg-transparent text-left"
+                      title={isLocalModeNoticeCollapsed ? 'Expand notice' : 'Collapse notice'}
                     >
-                      Clear Local Data
+                      <CaretDown
+                        size={16}
+                        className={cn('shrink-0 text-amber-900 transition-transform flex-shrink-0', isLocalModeNoticeCollapsed && '-rotate-90')}
+                        weight="bold"
+                      />
+                      <p className="text-sm text-amber-900">You are in local mode, expand for more info</p>
                     </Button>
-                  )}
-                </div>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="mt-2 pt-2 border-t border-amber-200/50">
+                      <p className="text-sm text-amber-900 mb-2">
+                        {isAuthenticated
+                          ? 'Offline/local mode is active. Your latest changes are kept on this device and will sync when cloud access is available.'
+                          : 'You are using local mode while logged out. Lists and tasks stay visible, but changes may not persist across devices unless you sign in.'}
+                      </p>
+                      {!isAuthenticated && (
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => setShowClearLocalDataDialog(true)}
+                          >
+                            Clear Local Data
+                          </Button>
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={() => window.location.href = '/.auth/login/aad?post_login_redirect_url='}
+                          >
+                            Login
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </CollapsibleContent>
+                </Card>
+              </Collapsible>
+            )}
+
+            {isCompact && (
+              <Card className="p-2.5 border-dashed border-muted-foreground/30 bg-muted/30">
+                <p className="text-xs text-muted-foreground text-center">
+                  Compact view hides task lists. Switch to expanded view to manage tasks.
+                </p>
               </Card>
             )}
 
@@ -3633,9 +3802,19 @@ function App() {
 
       <AlertDialog
         open={showAcknowledgmentDialog}
-        onOpenChange={(open) => !open && setShowAcknowledgmentDialog(false)}
+        onOpenChange={(open) => !open && handleDismissAcknowledgment()}
       >
         <AlertDialogContent>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute right-3 top-3 h-7 w-7"
+            onClick={handleDismissAcknowledgment}
+            title="Close"
+            aria-label="Close completion dialog"
+          >
+            <X size={14} />
+          </Button>
           <AlertDialogHeader>
             <AlertDialogTitle>
               {timerState.phase === 'work'

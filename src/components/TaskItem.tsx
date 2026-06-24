@@ -186,7 +186,12 @@ function SubtaskItem({
   const controlButtonClass =
     layoutMode === 'comfortable' ? 'h-7 w-7' : layoutMode === 'compact' ? 'h-6 w-6' : 'h-5 w-5'
   const controlIconSize = layoutMode === 'comfortable' ? 14 : layoutMode === 'compact' ? 12 : 11
-  const rowGapClass = layoutMode === 'comfortable' ? 'gap-2' : 'gap-1.5'
+  const rowGapClass =
+    layoutMode === 'comfortable'
+      ? 'gap-3'
+      : layoutMode === 'compact'
+      ? 'gap-2.5'
+      : 'gap-2'
   const controlGapClass = layoutMode === 'comfortable' ? 'gap-1' : 'gap-0.5'
   const gridGapClass = layoutMode === 'comfortable' ? 'gap-1' : 'gap-0.5'
   const stackControls = layoutMode === 'ultra'
@@ -344,7 +349,7 @@ function SubtaskItem({
         checked={subtask.completed}
         onCheckedChange={onToggleComplete}
         className={cn(
-          'h-4 w-4 mt-0.5 sm:mt-0 shrink-0',
+          'h-4 w-4 mt-0.5 sm:mt-0 mr-1 shrink-0',
           isHighPriority && !subtask.completed && 'border border-black'
         )}
       />
@@ -675,6 +680,7 @@ export function TaskItem({
   const canMoveDownAction = canMoveDown || Boolean(onTouchReorder)
   const incompleteSubtasks = task.subtasks.filter(subtask => !subtask.completed)
   const completedSubtasks = task.subtasks.filter(subtask => subtask.completed)
+  const incompleteOtherTasks = otherTasks.filter((otherTask) => !otherTask.completed)
 
   return (
     <div
@@ -702,7 +708,7 @@ export function TaskItem({
         isDragOver && 'ring-2 ring-primary/30'
       )}
     >
-      <div className="flex items-start gap-2">
+      <div className="flex items-start gap-3">
         <Button
           variant="ghost"
           size="icon"
@@ -948,7 +954,7 @@ export function TaskItem({
                     canMoveUp={subtaskIndex > 0}
                     canMoveDown={subtaskIndex < task.subtasks.length - 1}
                     onMoveToTask={() => setSubtaskToMove(subtask.id)}
-                    canMoveToAnotherTask={true}
+                    canMoveToAnotherTask={incompleteOtherTasks.length > 0}
                     onCopyToTask={() => setSubtaskToCopy(subtask.id)}
                     isHighPriority={task.isHighPriority}
                   />
@@ -1038,7 +1044,7 @@ export function TaskItem({
                     canMoveUp={subtaskIndex > 0}
                     canMoveDown={subtaskIndex < task.subtasks.length - 1}
                     onMoveToTask={() => setSubtaskToMove(subtask.id)}
-                    canMoveToAnotherTask={true}
+                    canMoveToAnotherTask={incompleteOtherTasks.length > 0}
                     onCopyToTask={() => setSubtaskToCopy(subtask.id)}
                     isHighPriority={task.isHighPriority}
                   />
@@ -1066,10 +1072,10 @@ export function TaskItem({
               </AlertDialogDescription>
             </AlertDialogHeader>
             <div className="max-h-64 overflow-y-auto space-y-2">
-              {otherTasks.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-4">No other tasks available</p>
+              {incompleteOtherTasks.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4">No incomplete tasks available</p>
               ) : (
-                otherTasks.map((t) => (
+                incompleteOtherTasks.map((t) => (
                   <Button
                     key={t.id}
                     variant="outline"

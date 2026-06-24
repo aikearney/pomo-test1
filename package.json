@@ -6,6 +6,7 @@
     "scripts": {
         "dev": "vite",
         "kill": "fuser -k 5000/tcp",
+        "generate:icons": "node scripts/generate-favicons.mjs",
         "build": "tsc -b --noCheck && vite build",
         "build:api": "npm --prefix src/api run build",
         "build:app": "npm run build && npm run build:api",
@@ -89,6 +90,8 @@
         "eslint-plugin-react-hooks": "^5.2.0",
         "eslint-plugin-react-refresh": "^0.4.19",
         "globals": "^16.0.0",
+        "png-to-ico": "^2.1.8",
+        "sharp": "^0.34.3",
         "tailwindcss": "^4.1.11",
         "typescript": "~5.7.2",
         "typescript-eslint": "^8.38.0",

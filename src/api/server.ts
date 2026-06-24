@@ -3,7 +3,7 @@ import express, { type Request, type Response, type NextFunction, type RequestHa
 import path from "node:path";
 import { v4 as uuid } from "uuid";
 import { getUserId } from "./shared/auth";
-import { getListsContainer, getTasksContainer } from "./shared/cosmos";
+import { getListsContainer, getTasksContainer, getUserPreferencesContainer } from "./shared/cosmos";
 
 const app = express();
 const port = Number(process.env.PORT ?? process.env.API_PORT ?? 7071);
@@ -21,11 +21,8 @@ app.get("/api/healthz", (_req, res) => {
   });
 });
 
-function getAuthenticatedUserId(req: Request): string | undefined {
-  return getUserId({ headers: req.headers });
-}
-
 const USER_ID_FILTER = "(c.userId = @userId OR c.userid = @userId)";
+const USER_PREFERENCES_DOC_ID = "preferences";
 
 function getHeaderValue(req: Request, name: string): string | undefined {
   const direct = req.headers[name.toLowerCase()];
@@ -83,6 +80,58 @@ function getClaimValue(principal: any, claimTypes: string[]): string | undefined
   return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
+async function fetchAuthPrincipalFromEasyAuth(req: Request): Promise<any | undefined> {
+  const principalHeader = getHeaderValue(req, "x-ms-client-principal");
+  const principalId = getHeaderValue(req, "x-ms-client-principal-id");
+
+  const forwardedProto = getHeaderValue(req, "x-forwarded-proto") || req.protocol;
+  const host = getHeaderValue(req, "x-forwarded-host") || req.get("host");
+
+  if (!host) {
+    return undefined;
+  }
+
+  const response = await fetch(`${forwardedProto}://${host}/.auth/me`, {
+    headers: {
+      cookie: getHeaderValue(req, "cookie") || "",
+      "x-ms-client-principal": principalHeader || "",
+      "x-ms-client-principal-id": principalId || "",
+      "x-ms-client-principal-name": getHeaderValue(req, "x-ms-client-principal-name") || "",
+    },
+  });
+
+  if (!response.ok) {
+    return undefined;
+  }
+
+  const authInfo = await response.json();
+  return Array.isArray(authInfo) ? authInfo[0] : undefined;
+}
+
+async function getAuthenticatedUserId(req: Request): Promise<string | undefined> {
+  const fromHeaders = getUserId({ headers: req.headers });
+  if (fromHeaders) {
+    return fromHeaders;
+  }
+
+  try {
+    const principal = await fetchAuthPrincipalFromEasyAuth(req);
+    const userId = typeof principal?.user_id === "string" ? principal.user_id : undefined;
+    return userId && userId.length > 0 ? userId : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function normalizeBackgroundOpacity(value: unknown, fallback = 0.8): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+
+  return Math.min(1, Math.max(0, parsed));
+}
+
 // Safe auth endpoint - proxies /.auth/me but strips sensitive tokens
 app.get("/api/auth/me", asyncHandler(async (req, res) => {
   try {
@@ -121,30 +170,7 @@ app.get("/api/auth/me", asyncHandler(async (req, res) => {
 
     // Fallback path when principal headers are unavailable in this hosting setup.
     if (!principal?.user_id) {
-      const forwardedProto = getHeaderValue(req, "x-forwarded-proto") || req.protocol;
-      const host = getHeaderValue(req, "x-forwarded-host") || req.get("host");
-
-      if (!host) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const response = await fetch(`${forwardedProto}://${host}/.auth/me`, {
-        headers: {
-          cookie: getHeaderValue(req, "cookie") || "",
-          "x-ms-client-principal": principalHeader || "",
-          "x-ms-client-principal-id": principalId || "",
-          "x-ms-client-principal-name": getHeaderValue(req, "x-ms-client-principal-name") || "",
-        },
-      });
-
-      if (!response.ok) {
-        res.status(response.status).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const authInfo = await response.json();
-      principal = Array.isArray(authInfo) ? authInfo[0] : undefined;
+      principal = await fetchAuthPrincipalFromEasyAuth(req);
     }
 
     if (!principal?.user_id) {
@@ -169,6 +195,97 @@ app.get("/api/auth/me", asyncHandler(async (req, res) => {
   }
 }));
 
+app.get("/api/preferences", asyncHandler(async (req, res) => {
+  const userId = await getAuthenticatedUserId(req);
+  if (!userId) {
+    res.status(401).send("Authentication required");
+    return;
+  }
+
+  const container = getUserPreferencesContainer();
+  const { resource } = await container.item(USER_PREFERENCES_DOC_ID, userId).read();
+
+  if (!resource) {
+    res.status(200).json({
+      backgroundImage: null,
+      backgroundOpacity: 0.8,
+    });
+    return;
+  }
+
+  res.status(200).json({
+    backgroundImage: typeof resource.backgroundImage === "string" ? resource.backgroundImage : null,
+    backgroundOpacity: normalizeBackgroundOpacity(resource.backgroundOpacity),
+  });
+}));
+
+app.patch("/api/preferences", asyncHandler(async (req, res) => {
+  const userId = await getAuthenticatedUserId(req);
+  if (!userId) {
+    res.status(401).send("Authentication required");
+    return;
+  }
+
+  const body = req.body ?? {};
+  const updates: Record<string, unknown> = {};
+
+  if (Object.prototype.hasOwnProperty.call(body, "backgroundImage")) {
+    if (body.backgroundImage !== null && typeof body.backgroundImage !== "string") {
+      res.status(400).send("backgroundImage must be a string or null");
+      return;
+    }
+
+    if (typeof body.backgroundImage === "string" && body.backgroundImage.length > 1024) {
+      res.status(400).send("backgroundImage value is too large");
+      return;
+    }
+
+    updates.backgroundImage = body.backgroundImage;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, "backgroundOpacity")) {
+    const parsed = Number(body.backgroundOpacity);
+    if (!Number.isFinite(parsed)) {
+      res.status(400).send("backgroundOpacity must be a number between 0 and 1");
+      return;
+    }
+
+    updates.backgroundOpacity = Math.min(1, Math.max(0, parsed));
+  }
+
+  const container = getUserPreferencesContainer();
+  const { resource: existing } = await container.item(USER_PREFERENCES_DOC_ID, userId).read();
+  const now = Date.now();
+  const createdAt = Number(existing?.createdAt) || now;
+
+  const nextDocument = {
+    id: USER_PREFERENCES_DOC_ID,
+    backgroundImage: null,
+    backgroundOpacity: 0.8,
+    ...(existing ?? {}),
+    ...updates,
+    userId,
+    userid: userId,
+    createdAt,
+    updatedAt: now,
+  };
+
+  if (existing) {
+    const { resource: saved } = await container.item(USER_PREFERENCES_DOC_ID, userId).replace(nextDocument);
+    res.status(200).json({
+      backgroundImage: typeof saved?.backgroundImage === "string" ? saved.backgroundImage : null,
+      backgroundOpacity: normalizeBackgroundOpacity(saved?.backgroundOpacity),
+    });
+    return;
+  }
+
+  const { resource: created } = await container.items.create(nextDocument);
+  res.status(200).json({
+    backgroundImage: typeof created?.backgroundImage === "string" ? created.backgroundImage : null,
+    backgroundOpacity: normalizeBackgroundOpacity(created?.backgroundOpacity),
+  });
+}));
+
 // Wrapper to catch Cosmos connection errors gracefully
 function asyncHandler(fn: (req: Request, res: Response, next?: NextFunction) => Promise<void>): RequestHandler {
   return (req: Request, res: Response, next?: NextFunction) => {
@@ -188,7 +305,7 @@ function asyncHandler(fn: (req: Request, res: Response, next?: NextFunction) => 
 }
 
 app.get("/api/lists", asyncHandler(async (req, res) => {
-  const userId = getAuthenticatedUserId(req);
+  const userId = await getAuthenticatedUserId(req);
 
   if (!userId) {
     // Keep anonymous behavior stable for the existing frontend contract.
@@ -220,7 +337,7 @@ app.get("/api/lists", asyncHandler(async (req, res) => {
 }));
 
 app.post("/api/lists", asyncHandler(async (req, res) => {
-  const userId = getAuthenticatedUserId(req);
+  const userId = await getAuthenticatedUserId(req);
   if (!userId) {
     res.status(401).send("Authentication required");
     return;
@@ -247,7 +364,7 @@ app.post("/api/lists", asyncHandler(async (req, res) => {
 }));
 
 app.patch("/api/lists/:id", asyncHandler(async (req, res) => {
-  const userId = getAuthenticatedUserId(req);
+  const userId = await getAuthenticatedUserId(req);
   if (!userId) {
     res.status(401).send("Authentication required");
     return;
@@ -273,7 +390,7 @@ app.patch("/api/lists/:id", asyncHandler(async (req, res) => {
 }));
 
 app.delete("/api/lists/:id", asyncHandler(async (req, res) => {
-  const userId = getAuthenticatedUserId(req);
+  const userId = await getAuthenticatedUserId(req);
   if (!userId) {
     res.status(401).send("Authentication required");
     return;
@@ -308,7 +425,7 @@ app.delete("/api/lists/:id", asyncHandler(async (req, res) => {
 }));
 
 app.get("/api/lists/:id/tasks", asyncHandler(async (req, res) => {
-  const userId = getAuthenticatedUserId(req);
+  const userId = await getAuthenticatedUserId(req);
   if (!userId) {
     res.status(401).send("Authentication required");
     return;
@@ -358,7 +475,7 @@ app.get("/api/lists/:id/tasks", asyncHandler(async (req, res) => {
 }));
 
 app.post("/api/lists/:id/tasks", asyncHandler(async (req, res) => {
-  const userId = getAuthenticatedUserId(req);
+  const userId = await getAuthenticatedUserId(req);
   if (!userId) {
     res.status(401).send("Authentication required");
     return;
@@ -417,7 +534,7 @@ app.post("/api/lists/:id/tasks", asyncHandler(async (req, res) => {
 }));
 
 app.patch("/api/tasks/:id", asyncHandler(async (req, res) => {
-  const userId = getAuthenticatedUserId(req);
+  const userId = await getAuthenticatedUserId(req);
   if (!userId) {
     res.status(401).send("Authentication required");
     return;
@@ -443,7 +560,7 @@ app.patch("/api/tasks/:id", asyncHandler(async (req, res) => {
 }));
 
 app.delete("/api/tasks/:id", asyncHandler(async (req, res) => {
-  const userId = getAuthenticatedUserId(req);
+  const userId = await getAuthenticatedUserId(req);
   if (!userId) {
     res.status(401).send("Authentication required");
     return;

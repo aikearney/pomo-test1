@@ -76,7 +76,7 @@ export function TimerDisplay({ phase, remainingSeconds, completedIterations, isC
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.3 }}
-            className={cn('font-display font-bold text-4xl sm:text-5xl', getPhaseColor())}
+            className={cn('font-display font-bold text-6xl sm:text-7xl', getPhaseColor())}
           >
             {formatTimerDisplay(remainingSeconds)}
           </motion.div>

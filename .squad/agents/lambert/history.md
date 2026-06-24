@@ -13,3 +13,8 @@
 - 2026-06-16: Verified on 390px viewport that subtasks render in a dedicated section below task-level options and long subtask names wrap without collapsing into an unusable narrow control column.
 - 2026-06-16: `npm run smoke:api` still targets `http://localhost:7071`; failure there is expected when API server is not running and should not be treated as a frontend-only regression signal.
 - 2026-06-16: Independent QA verification passed all mobile readability acceptance criteria with no code changes required.
+- 2026-06-24: Verified `handleSelectTaskList` collapses all tasks on list open by setting `allTasksCollapsed` true and forcing each task `collapsed: true`, preserving the requested auto-collapse behavior.
+- 2026-06-24: Verified local-mode/logged-out warning is now dismissible via `isLocalModeNoticeDismissed`; dismissal is session-scoped and resets when local-mode warning no longer applies.
+- 2026-06-24: Verified compact timer includes both reduced timer sizing and an explicit muted-state note (`Muted`) when sound is off.
+- 2026-06-24: API smoke and API build remain environment-sensitive gates: smoke fails if no local API server runs on `http://localhost:7071`, and direct `npm run build:api` from repo root can fail when API package deps/types are not installed in the active node_modules layout.
+- 2026-06-24: App icon integration is currently incomplete in app source: no project-owned icon/manifest assets were found outside dependencies, and `index.html` has no favicon/apple-touch/manifest links.
