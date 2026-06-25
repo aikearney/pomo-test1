@@ -252,21 +252,31 @@ INTERNAL_ERROR
 RATE_LIMITED
 ```
 
-### 2.2 Request Coercion Rules
+### 2.2 Strict Validation Rules
 
-The backend applies these transformations to normalize input:
+**Philosophy: Reject Don't Coerce** — The backend validates input strictly. Invalid requests return 400 errors; we do NOT silently coerce values.
 
-| Input | Coercion | Result |
+| Input | Behavior | Result |
 |-------|----------|--------|
-| `"iterations": "2"` | Parse as integer | `iterations: 2` |
-| `"iterations": 1.5` | Round to nearest integer | `iterations: 2` |
-| `"iterations": 0` | Reject (must be ≥ 1) | 400 error |
-| `"iterations": -5` | Reject (negative) | 400 error |
-| `"isHighPriority": "true"` | Coerce to boolean | `isHighPriority: true` |
-| `"isHighPriority": 1` | Coerce to boolean | `isHighPriority: true` |
-| `"listName": "  Shopping  "` | Trim whitespace | `listName: "Shopping"` |
+| `"iterations": "2"` | String provided (not integer) | **REJECT** — 400 INVALID_REQUEST |
+| `"iterations": 1.5` | Float provided (not integer) | **REJECT** — 400 INVALID_ITERATIONS (rounds floats are coerced, but design doc says reject) |
+| `"iterations": 0` | Zero or negative | **REJECT** — 400 INVALID_ITERATIONS (must be 1–100) |
+| `"iterations": 101` | Out of range | **REJECT** — 400 INVALID_ITERATIONS (max 100) |
+| `"isHighPriority": "true"` | String instead of boolean | **REJECT** — 400 INVALID_REQUEST |
+| `"isHighPriority": 1` | Number instead of boolean | **REJECT** — 400 INVALID_REQUEST |
+| `"name": "  "` | Whitespace-only name | **REJECT** — 400 INVALID_REQUEST (name required, non-empty) |
+| `"name": ""` | Empty string | **REJECT** — 400 INVALID_REQUEST |
+| `"listName": "  Shopping  "` | Leading/trailing whitespace | **TRIM** — `listName: "Shopping"` (whitespace normalization only) |
+| `subtasks.length > 20` | Too many subtasks | **REJECT** — 400 INVALID_REQUEST (max 20 per task) |
 
-### 2.3 Success Response Structure
+**Coercion Policy:**
+- Only whitespace trimming is allowed (input normalization, not validation)
+- All other transformations (type coercion, rounding, etc.) are REJECTED with 400 error
+- Explicit error messages indicate what was received vs. expected
+
+**Rationale:** Strict validation prevents silent data corruption and makes client behavior predictable. Copilot/Alexa should fix parsing issues before sending to backend.
+
+### 2.3 Request Coercion Rules (DEPRECATED — Use Strict Validation)
 
 All successful responses follow this pattern:
 
@@ -299,15 +309,61 @@ For batch operations:
 
 ## 3. Authentication Strategy
 
-### 3.1 Existing Azure Easy Auth (Preferred)
+### 3.1 Dual-Mode Authentication (Bearer Token + Easy Auth)
 
-**Reuse current authentication mechanism:**
+**Preferred Order:**
+1. **Bearer Token (JWT)** — External clients (Copilot, Alexa, plugins)
+2. **Azure Easy Auth** — Web app (fallback)
 
-1. **Request Header:** `x-ms-client-principal`
-2. **Extraction:** `getUserId()` helper (existing in `src/api/shared/auth.ts`)
-3. **Validation:** Backend verifies user ID before DB queries
+**Bearer Token Mode (NEW):**
+- **Header:** `Authorization: Bearer {jwt-token}`
+- **Validation:**
+  - Token signature verification (RS256 or HS256)
+  - Expiration check (`exp` claim)
+  - Audience verification (`aud` claim must contain app identifier)
+  - Subject extraction (`sub` or `oid` claim for user ID)
+- **Token Claims Expected:**
+  ```json
+  {
+    "sub": "user-uuid",
+    "aud": "pomodoro-app",
+    "exp": 1719408000,
+    "iat": 1719321600,
+    "email": "user@example.com"
+  }
+  ```
+- **Configuration (env vars):**
+  - `JWT_SIGNING_KEY` or `JWT_ISSUER` — for validation
+  - `JWT_AUDIENCE` — expected audience claim
+  - `JWT_ALGORITHMS` — allowed algorithms (default: RS256)
 
-**No changes required to current auth flow.**
+**Easy Auth Mode (Legacy):**
+- **Header:** `x-ms-client-principal`
+- **Extraction:** `getUserId()` helper (existing in `src/api/shared/auth.ts`)
+- **Fallback:** Used only if Bearer token not provided
+
+**Implementation Logic:**
+```typescript
+// Pseudocode
+async function getAuthenticatedUserId(req) {
+  // Try Bearer token first
+  const bearerToken = extractBearerToken(req);
+  if (bearerToken) {
+    const userId = await validateJWT(bearerToken);
+    if (userId) return userId; // Success
+    // If token invalid, reject (don't fall back)
+  }
+  
+  // Fall back to Easy Auth
+  const easyAuthUserId = getUserId(req);
+  if (easyAuthUserId) return easyAuthUserId;
+  
+  // No valid auth found
+  return null;
+}
+```
+
+**Security Note:** If Bearer token is present but invalid, the request is REJECTED (status 401). We do NOT fall back to Easy Auth on invalid Bearer tokens. This prevents auth bypass.
 
 ### 3.2 Optional Analytics Header
 
@@ -420,9 +476,85 @@ Payload:
 
 ---
 
-## 5. Workflow Logic & Edge Cases
+## 5. Transaction Guarantees & Atomicity
 
-### 5.1 List Creation Flow
+### 5.1 All-or-Nothing Task Creation
+
+**Guarantee:** The `POST /api/ai/tasks` endpoint guarantees **atomic creation**. Either ALL tasks in the batch are created successfully, or NONE are created.
+
+**Validation Phase (Synchronous):**
+1. All tasks in request are validated BEFORE any database operations
+2. If ANY task fails validation, the entire batch is rejected with 400 error
+3. No tasks are persisted; client gets explicit error message
+
+**Creation Phase (Transactional):**
+1. After validation passes, all tasks are written to Cosmos DB in a single transaction
+2. If the transaction fails (network error, Cosmos throttling, etc.):
+   - All writes are rolled back (no partial data created)
+   - Response: 500 `INTERNAL_ERROR` with correlation ID
+   - Client should retry (request is idempotent if same `requestId` is provided)
+
+**Important:** List creation happens BEFORE task creation. If list creation succeeds but task creation fails:
+- List is already created (cannot be rolled back)
+- Tasks are rolled back (not created)
+- Client receives 500 error with guidance: "List '{listName}' was created, but tasks failed. Retry with `listId`."
+
+### 5.2 Transactional Wrapper Implementation
+
+**Pseudo-code:**
+```typescript
+async function createTasksAtomically(userId, listId, tasks) {
+  return withTransaction(async (txn) => {
+    // Write all tasks to Cosmos in single batch operation
+    const createdTasks = [];
+    for (const task of tasks) {
+      const created = await getTasksContainer().items.create({
+        ...task,
+        userId,
+        id: uuid(),
+      });
+      createdTasks.push(created);
+    }
+    return createdTasks;
+  });
+}
+
+// Usage in endpoint:
+try {
+  const tasksCreated = await createTasksAtomically(userId, listId, tasks);
+  // Success: all tasks written
+  res.status(201).json({ tasksCreated, ... });
+} catch (error) {
+  if (error instanceof TransactionError) {
+    res.status(500).json({ 
+      error: "INTERNAL_ERROR",
+      message: "Transaction failed. Please retry.",
+      correlationId: requestId
+    });
+  }
+}
+```
+
+### 5.3 Retry Behavior
+
+**For Clients:**
+- If you receive 500 `INTERNAL_ERROR`, retry the request
+- To safely retry, include a `requestId` header:
+  ```
+  X-Request-ID: {stable-uuid}
+  ```
+- Backend can use this to detect duplicate requests and return cached result (idempotency, Phase 2)
+
+**For Backend:**
+- Retry logic: Exponential backoff (100ms → 500ms → 2s) on Cosmos throttling
+- Max retries: 3 before returning 500 error to client
+- Log all transaction failures for debugging
+
+---
+
+## 6. Workflow Logic & Edge Cases
+
+### 6.1 List Creation Flow
 
 **Scenario: User says "Add task to a new list called 'Groceries'"**
 
