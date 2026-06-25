@@ -3412,7 +3412,7 @@ function App() {
             {isCompact && (
               <Card className="p-2.5 border-dashed border-muted-foreground/30 bg-muted/30">
                 <p className="text-xs text-muted-foreground text-center">
-                  Compact view hides task lists. Switch to expanded view to manage tasks.
+                  Compact view hides tasks. Switch to expanded view to manage tasks.
                 </p>
               </Card>
             )}
