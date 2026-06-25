@@ -818,7 +818,7 @@ function App() {
       redirectToLogout()
       return
     }
-    setShowLoginOverlay(true)
+    redirectToLogin()
   }
 
   useEffect(() => {
@@ -1463,15 +1463,26 @@ function App() {
 
   // const [backgroundImage, setBackgroundImage] = useKV<string | null>('pomodoro-background', null)
   const [backgroundImage, setBackgroundImage] = useState<string | null>(() => {
-    return localStorage.getItem(BACKGROUND_STORAGE_KEY)
+    // Check scoped key first (if authUserId available), then global
+    // Note: authUserId may not be available during initial mount, so we check global as fallback
+    const globalValue = localStorage.getItem(BACKGROUND_STORAGE_KEY)
+    return globalValue
   })
 
   useEffect(() => {
+    // When authUserId changes, prefer scoped background, but don't clear if nothing found
     const scopedBackground = localStorage.getItem(
       getUserScopedStorageKey(BACKGROUND_STORAGE_KEY)
     )
-    const globalBackground = localStorage.getItem(BACKGROUND_STORAGE_KEY)
-    setBackgroundImage(scopedBackground ?? globalBackground)
+    if (scopedBackground !== null) {
+      setBackgroundImage(scopedBackground)
+    } else {
+      const globalBackground = localStorage.getItem(BACKGROUND_STORAGE_KEY)
+      if (globalBackground !== null) {
+        setBackgroundImage(globalBackground)
+      }
+      // If both are null, don't override - preserve current state or initialization
+    }
   }, [authUserId])
 
   useEffect(() => {
@@ -1498,10 +1509,22 @@ function App() {
     const scopedOpacity = localStorage.getItem(
       getUserScopedStorageKey(BACKGROUND_OPACITY_STORAGE_KEY)
     )
-    const globalOpacity = localStorage.getItem(BACKGROUND_OPACITY_STORAGE_KEY)
-    const candidate = scopedOpacity ?? globalOpacity
-    const parsed = candidate ? Number(candidate) : 0.8
-    setBackgroundOpacity(Number.isFinite(parsed) ? parsed : 0.8)
+    const candidate = scopedOpacity
+    if (candidate) {
+      const parsed = Number(candidate)
+      if (Number.isFinite(parsed)) {
+        setBackgroundOpacity(Math.max(0, Math.min(1, parsed)))
+      }
+    } else {
+      // Only check global if scoped not found, and only if we have something to migrate
+      const globalOpacity = localStorage.getItem(BACKGROUND_OPACITY_STORAGE_KEY)
+      if (globalOpacity) {
+        const parsed = Number(globalOpacity)
+        if (Number.isFinite(parsed)) {
+          setBackgroundOpacity(Math.max(0, Math.min(1, parsed)))
+        }
+      }
+    }
   }, [authUserId])
 
   useEffect(() => {
@@ -1525,17 +1548,17 @@ function App() {
         const prefs = await apiFetch<UserPreferences>('/api/preferences')
         if (cancelled) return
 
-        if (Object.prototype.hasOwnProperty.call(prefs, 'backgroundImage')) {
-          setBackgroundImage(
-            typeof prefs.backgroundImage === 'string' ? prefs.backgroundImage : null
-          )
+        // Only load from server if the property exists AND has a valid string value
+        // This prevents empty/null server responses from clearing local storage
+        if (Object.prototype.hasOwnProperty.call(prefs, 'backgroundImage') && 
+            typeof prefs.backgroundImage === 'string') {
+          setBackgroundImage(prefs.backgroundImage)
         }
 
-        if (Object.prototype.hasOwnProperty.call(prefs, 'backgroundOpacity')) {
-          const parsed = Number(prefs.backgroundOpacity)
-          if (Number.isFinite(parsed)) {
-            setBackgroundOpacity(Math.min(1, Math.max(0, parsed)))
-          }
+        if (Object.prototype.hasOwnProperty.call(prefs, 'backgroundOpacity') && 
+            typeof prefs.backgroundOpacity === 'number' &&
+            Number.isFinite(prefs.backgroundOpacity)) {
+          setBackgroundOpacity(Math.min(1, Math.max(0, prefs.backgroundOpacity)))
         }
 
         setHasLoadedServerPreferences(true)
@@ -1657,7 +1680,7 @@ function App() {
   const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false)
   const [showClearLocalDataDialog, setShowClearLocalDataDialog] = useState(false)
   const [showTemplatesDialog, setShowTemplatesDialog] = useState(false)
-  const [isLocalModeNoticeCollapsed, setIsLocalModeNoticeCollapsed] = useState(false)
+  const [isLocalModeNoticeCollapsed, setIsLocalModeNoticeCollapsed] = useState(true)
 
   const handleSelectTaskList = (listId: string) => {
     setCurrentTaskListId(listId)

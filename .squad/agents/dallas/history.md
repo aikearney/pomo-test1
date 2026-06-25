@@ -19,3 +19,4 @@
 - 2026-06-24: Wired tomato icon paths in index HTML and documented required asset path as public/icons/tomato.png for one-step final hookup.
 - 2026-06-24: Validation: npm run build passed after frontend updates; only pre-existing CSS optimization and chunk-size warnings remained.
 - 2026-06-24: Added automated favicon/app icon generation workflow from public/icons/tomato.png, wired generated icon + manifest links in index.html, and documented missing-source behavior/command in public/icons/README.md.
+- 2026-06-25: Fixed login button to call redirectToLogin() instead of setShowLoginOverlay(true); button now properly navigates to auth endpoint. Learned: overlay state toggling was UI-only; auth flows should delegate directly to redirect functions.

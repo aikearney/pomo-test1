@@ -55,3 +55,5 @@ AzuriteWorkspace
 .squad/.watch-pids
 # Squad: ignore runtime state (logs, inbox, sessions)
 .squad/.scratch/
+# Squad: ignore runtime state (logs, inbox, sessions)
+.squad/.cache/
