@@ -6,6 +6,7 @@
 
 import { Request, Response, NextFunction } from "express";
 import { expect } from "@jest/globals";
+import jwt from "jsonwebtoken";
 
 // ============================================================================
 // TEST USER IDS & AUTH HEADERS
@@ -17,10 +18,37 @@ export const TEST_USERS = {
   USER_C: "test-user-c-uuid",
 };
 
+// Read from environment variables (set by setup.ts before tests run)
+const JWT_SECRET = process.env.JWT_SIGNING_KEY || "test-secret-key-min-32-characters!!";
+const JWT_AUDIENCE = process.env.JWT_AUDIENCE || "test-api";
+const JWT_ISSUER = process.env.JWT_ISSUER || "test-issuer";
+
 /**
- * Create a valid x-ms-client-principal header for testing
+ * Generate a valid JWT Bearer token for testing
  */
-export function createAuthHeader(userId: string): Record<string, string> {
+export function createBearerToken(userId: string, scopes: string[] = ["tasks:write", "lists:read"]): string {
+  const token = jwt.sign(
+    {
+      sub: userId,
+      oid: userId,
+      email: `${userId}@example.com`,
+      scope: scopes.join(" "),
+    },
+    JWT_SECRET,
+    {
+      algorithm: "HS256",
+      audience: JWT_AUDIENCE,
+      issuer: JWT_ISSUER,
+      expiresIn: "1h",
+    }
+  );
+  return token;
+}
+
+/**
+ * Create a valid x-ms-client-principal header for Easy Auth testing
+ */
+export function createEasyAuthHeader(userId: string): Record<string, string> {
   const principal = {
     userId,
     userDetails: userId,
@@ -37,6 +65,32 @@ export function createAuthHeader(userId: string): Record<string, string> {
     "x-ms-client-principal-id": userId,
     "x-ms-client-principal-name": `user-${userId}`,
   };
+}
+
+/**
+ * Create authorization headers (defaults to Easy Auth for backward compatibility)
+ */
+export function createAuthHeader(
+  userId: string,
+  mode: "bearer" | "easyauth" = "easyauth"
+): Record<string, string> {
+  if (mode === "bearer") {
+    const token = createBearerToken(userId);
+    return {
+      authorization: `Bearer ${token}`,
+    };
+  }
+  return createEasyAuthHeader(userId);
+}
+
+/**
+ * Get JWT configuration for server
+ */
+export function setupJwtEnv(): void {
+  process.env.JWT_SIGNING_KEY = JWT_SECRET;
+  process.env.JWT_AUDIENCE = JWT_AUDIENCE;
+  process.env.JWT_ISSUER = JWT_ISSUER;
+  process.env.JWT_ALGORITHMS = "HS256";
 }
 
 // ============================================================================

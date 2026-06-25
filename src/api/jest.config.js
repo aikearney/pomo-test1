@@ -11,6 +11,7 @@ module.exports = {
   ],
   preset: "ts-jest",
   moduleFileExtensions: ["ts", "js", "json"],
+  setupFilesAfterEnv: ["<rootDir>/tests/setup.ts"],
   collectCoverageFrom: [
     "*.ts",
     "!*.d.ts",

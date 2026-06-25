@@ -1,0 +1,2585 @@
+
+> api@1.0.0 test
+> jest
+
+  console.log
+    Ô£à Test suite initialized (65+ tests)
+
+      at Object.<anonymous> (tests/api.ai-tasks.test.ts:213:11)
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=6da05c32-3cb4-4ab8-b2a6-815ae772fa4b
+
+      at server.ts:807:11
+
+  console.log
+    [API] Resolving list by name: Personal
+
+      at server.ts:862:13
+
+  console.log
+    [API] Found existing list: list-personal-1
+
+      at server.ts:876:15
+
+  console.log
+    [API] Creating 1 tasks in atomic batch for listId=list-personal-1
+
+      at server.ts:918:11
+
+  console.log
+    [COSMOS] Successfully created 1 tasks in atomic batch for listId=list-personal-1, userId=test-user-a-uuid
+
+      at createTasksBatch (shared/cosmos.ts:205:11)
+
+  console.log
+    [API] Successfully created 1 tasks with 0 subtasks (1 total pomodoros)
+
+      at server.ts:973:11
+
+  console.warn
+    [AUTH] JWT validation error: jwt malformed
+
+    [0m [90m 178 |[39m       console[33m.[39mwarn([32m"[AUTH] JWT token expired:"[39m[33m,[39m error[33m.[39mmessage)[33m;[39m
+     [90m 179 |[39m     } [36melse[39m [36mif[39m (error [36minstanceof[39m jwt[33m.[39m[33mJsonWebTokenError[39m) {
+    [31m[1m>[22m[39m[90m 180 |[39m       console[33m.[39mwarn([32m"[AUTH] JWT validation error:"[39m[33m,[39m error[33m.[39mmessage)[33m;[39m
+     [90m     |[39m               [31m[1m^[22m[39m
+     [90m 181 |[39m     } [36melse[39m {
+     [90m 182 |[39m       console[33m.[39mwarn([32m"[AUTH] Unexpected JWT error:"[39m[33m,[39m error)[33m;[39m
+     [90m 183 |[39m     }[0m
+
+      at verifyBearerToken (shared/auth.ts:180:15)
+      at getUserIdFromRequest (shared/auth.ts:201:25)
+      at server.ts:799:43
+      at server.ts:402:21
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at next (node_modules/express/lib/router/route.js:149:13)
+      at Route.dispatch (node_modules/express/lib/router/route.js:119:3)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at node_modules/express/lib/router/index.js:284:15
+      at router.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at urlencodedParser (node_modules/body-parser/lib/types/urlencoded.js:82:7)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at router.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at node_modules/body-parser/lib/read.js:137:5
+      at invokeCallback (node_modules/raw-body/index.js:238:16)
+      at done (node_modules/raw-body/index.js:227:7)
+      at IncomingMessage.onEnd (node_modules/raw-body/index.js:287:7)
+
+  console.warn
+    [AUTH] JWT token expired: jwt expired
+
+    [0m [90m 176 |[39m   } [36mcatch[39m (error) {
+     [90m 177 |[39m     [36mif[39m (error [36minstanceof[39m jwt[33m.[39m[33mTokenExpiredError[39m) {
+    [31m[1m>[22m[39m[90m 178 |[39m       console[33m.[39mwarn([32m"[AUTH] JWT token expired:"[39m[33m,[39m error[33m.[39mmessage)[33m;[39m
+     [90m     |[39m               [31m[1m^[22m[39m
+     [90m 179 |[39m     } [36melse[39m [36mif[39m (error [36minstanceof[39m jwt[33m.[39m[33mJsonWebTokenError[39m) {
+     [90m 180 |[39m       console[33m.[39mwarn([32m"[AUTH] JWT validation error:"[39m[33m,[39m error[33m.[39mmessage)[33m;[39m
+     [90m 181 |[39m     } [36melse[39m {[0m
+
+      at verifyBearerToken (shared/auth.ts:178:15)
+      at getUserIdFromRequest (shared/auth.ts:201:25)
+      at server.ts:799:43
+      at server.ts:402:21
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at next (node_modules/express/lib/router/route.js:149:13)
+      at Route.dispatch (node_modules/express/lib/router/route.js:119:3)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at node_modules/express/lib/router/index.js:284:15
+      at router.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at urlencodedParser (node_modules/body-parser/lib/types/urlencoded.js:82:7)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at router.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at node_modules/body-parser/lib/read.js:137:5
+      at invokeCallback (node_modules/raw-body/index.js:238:16)
+      at done (node_modules/raw-body/index.js:227:7)
+      at IncomingMessage.onEnd (node_modules/raw-body/index.js:287:7)
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=c6413972-cc90-4c57-bdc4-3762d3ed40df
+
+      at server.ts:807:11
+
+  console.log
+    [API] Resolving list by name: Personal
+
+      at server.ts:862:13
+
+  console.log
+    [API] Found existing list: list-personal-1
+
+      at server.ts:876:15
+
+  console.log
+    [API] Creating 1 tasks in atomic batch for listId=list-personal-1
+
+      at server.ts:918:11
+
+  console.log
+    [COSMOS] Successfully created 1 tasks in atomic batch for listId=list-personal-1, userId=test-user-a-uuid
+
+      at createTasksBatch (shared/cosmos.ts:205:11)
+
+  console.log
+    [API] Successfully created 1 tasks with 0 subtasks (1 total pomodoros)
+
+      at server.ts:973:11
+
+  console.log
+    [AUTH] Easy Auth fallback for userId=test-user-a-uuid
+
+      at getUserIdFromRequest (shared/auth.ts:213:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=easyauth, userId=test-user-a-uuid, requestId=8695211c-6c85-49b9-961b-fb772570b13a
+
+      at server.ts:807:11
+
+  console.log
+    [API] Resolving list by name: Personal
+
+      at server.ts:862:13
+
+  console.log
+    [API] Found existing list: list-personal-1
+
+      at server.ts:876:15
+
+  console.log
+    [API] Creating 1 tasks in atomic batch for listId=list-personal-1
+
+      at server.ts:918:11
+
+  console.log
+    [COSMOS] Successfully created 1 tasks in atomic batch for listId=list-personal-1, userId=test-user-a-uuid
+
+      at createTasksBatch (shared/cosmos.ts:205:11)
+
+  console.log
+    [API] Successfully created 1 tasks with 0 subtasks (1 total pomodoros)
+
+      at server.ts:973:11
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=29a4792b-faf4-4857-a80f-eacd2c5aa1cd
+
+      at server.ts:807:11
+
+  console.log
+    [API] Resolving list by name: Personal
+
+      at server.ts:862:13
+
+  console.log
+    [API] Found existing list: list-personal-1
+
+      at server.ts:876:15
+
+  console.log
+    [API] Creating 1 tasks in atomic batch for listId=list-personal-1
+
+      at server.ts:918:11
+
+  console.log
+    [COSMOS] Successfully created 1 tasks in atomic batch for listId=list-personal-1, userId=test-user-a-uuid
+
+      at createTasksBatch (shared/cosmos.ts:205:11)
+
+  console.log
+    [API] Successfully created 1 tasks with 0 subtasks (1 total pomodoros)
+
+      at server.ts:973:11
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=85896240-33a8-4827-9c0e-2dde7a2600ca
+
+      at server.ts:807:11
+
+  console.log
+    [API] Resolving list by name: Personal
+
+      at server.ts:862:13
+
+  console.log
+    [API] Found existing list: list-personal-1
+
+      at server.ts:876:15
+
+  console.log
+    [API] Creating 1 tasks in atomic batch for listId=list-personal-1
+
+      at server.ts:918:11
+
+  console.log
+    [COSMOS] Successfully created 1 tasks in atomic batch for listId=list-personal-1, userId=test-user-a-uuid
+
+      at createTasksBatch (shared/cosmos.ts:205:11)
+
+  console.log
+    [API] Successfully created 1 tasks with 0 subtasks (1 total pomodoros)
+
+      at server.ts:973:11
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=1cc0e892-4d00-4a79-867d-db934c08269e
+
+      at server.ts:807:11
+
+  console.log
+    [API] Resolving list by name: Personal
+
+      at server.ts:862:13
+
+  console.log
+    [API] Found existing list: list-personal-1
+
+      at server.ts:876:15
+
+  console.log
+    [API] Creating 1 tasks in atomic batch for listId=list-personal-1
+
+      at server.ts:918:11
+
+  console.log
+    [COSMOS] Successfully created 1 tasks in atomic batch for listId=list-personal-1, userId=test-user-a-uuid
+
+      at createTasksBatch (shared/cosmos.ts:205:11)
+
+  console.log
+    [API] Successfully created 1 tasks with 0 subtasks (1 total pomodoros)
+
+      at server.ts:973:11
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=66680181-e067-462f-ad93-0d6fed1623af
+
+      at server.ts:807:11
+
+  console.log
+    [API] Resolving list by name: Work
+
+      at server.ts:862:13
+
+  console.log
+    [API] Found existing list: list-work-1
+
+      at server.ts:876:15
+
+  console.log
+    [API] Creating 1 tasks in atomic batch for listId=list-work-1
+
+      at server.ts:918:11
+
+  console.log
+    [COSMOS] Successfully created 1 tasks in atomic batch for listId=list-work-1, userId=test-user-a-uuid
+
+      at createTasksBatch (shared/cosmos.ts:205:11)
+
+  console.log
+    [API] Successfully created 1 tasks with 5 subtasks (8 total pomodoros)
+
+      at server.ts:973:11
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=e41ef794-8ec4-4d39-a0e5-8f45a998d60d
+
+      at server.ts:807:11
+
+  console.log
+    [API] Resolving list by name: BulkWork
+
+      at server.ts:862:13
+
+  console.log
+    [API] Auto-creating list: BulkWork
+
+      at server.ts:880:15
+
+  console.log
+    [API] Creating 50 tasks in atomic batch for listId=ff4219b4-88e2-4d8c-a19f-4d193914f86f
+
+      at server.ts:918:11
+
+  console.log
+    [COSMOS] Successfully created 50 tasks in atomic batch for listId=ff4219b4-88e2-4d8c-a19f-4d193914f86f, userId=test-user-a-uuid
+
+      at createTasksBatch (shared/cosmos.ts:205:11)
+
+  console.log
+    [API] Successfully created 50 tasks with 0 subtasks (50 total pomodoros)
+
+      at server.ts:973:11
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=a560d14a-9258-411a-a749-6e8535ca878b
+
+      at server.ts:807:11
+
+  console.log
+    [API] Resolving list by name: NewList
+
+      at server.ts:862:13
+
+  console.log
+    [API] Auto-creating list: NewList
+
+      at server.ts:880:15
+
+  console.log
+    [API] Creating 1 tasks in atomic batch for listId=fe4dfd9e-5419-404a-829d-f296307989e5
+
+      at server.ts:918:11
+
+  console.log
+    [COSMOS] Successfully created 1 tasks in atomic batch for listId=fe4dfd9e-5419-404a-829d-f296307989e5, userId=test-user-a-uuid
+
+      at createTasksBatch (shared/cosmos.ts:205:11)
+
+  console.log
+    [API] Successfully created 1 tasks with 0 subtasks (1 total pomodoros)
+
+      at server.ts:973:11
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=506cf5ca-b11a-440f-ab7d-137e3b34665c
+
+      at server.ts:807:11
+
+  console.log
+    [API] Resolving list by ID: list-personal-1
+
+      at server.ts:838:13
+
+  console.log
+    [API] Creating 1 tasks in atomic batch for listId=list-personal-1
+
+      at server.ts:918:11
+
+  console.log
+    [COSMOS] Successfully created 1 tasks in atomic batch for listId=list-personal-1, userId=test-user-a-uuid
+
+      at createTasksBatch (shared/cosmos.ts:205:11)
+
+  console.log
+    [API] Successfully created 1 tasks with 0 subtasks (1 total pomodoros)
+
+      at server.ts:973:11
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=89ee14d4-8931-4797-825e-5395598a24f7
+
+      at server.ts:807:11
+
+  console.log
+    [API] Resolving list by ID: list-personal-1
+
+      at server.ts:838:13
+
+  console.log
+    [API] Creating 1 tasks in atomic batch for listId=list-personal-1
+
+      at server.ts:918:11
+
+  console.log
+    [COSMOS] Successfully created 1 tasks in atomic batch for listId=list-personal-1, userId=test-user-a-uuid
+
+      at createTasksBatch (shared/cosmos.ts:205:11)
+
+  console.log
+    [API] Successfully created 1 tasks with 0 subtasks (1 total pomodoros)
+
+      at server.ts:973:11
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=22199960-dec5-4885-85fc-0dd437792cb3
+
+      at server.ts:807:11
+
+  console.log
+    [API] Resolving list by name: Personal
+
+      at server.ts:862:13
+
+  console.log
+    [API] Found existing list: list-personal-1
+
+      at server.ts:876:15
+
+  console.log
+    [API] Creating 1 tasks in atomic batch for listId=list-personal-1
+
+      at server.ts:918:11
+
+  console.log
+    [COSMOS] Successfully created 1 tasks in atomic batch for listId=list-personal-1, userId=test-user-a-uuid
+
+      at createTasksBatch (shared/cosmos.ts:205:11)
+
+  console.log
+    [API] Successfully created 1 tasks with 0 subtasks (1 total pomodoros)
+
+      at server.ts:973:11
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=9991b576-3284-48c7-b1a0-63c95f94d74e
+
+      at server.ts:807:11
+
+  console.log
+    [API] Resolving list by ID: list-personal-1
+
+      at server.ts:838:13
+
+  console.log
+    [API] Creating 2 tasks in atomic batch for listId=list-personal-1
+
+      at server.ts:918:11
+
+  console.log
+    [COSMOS] Successfully created 2 tasks in atomic batch for listId=list-personal-1, userId=test-user-a-uuid
+
+      at createTasksBatch (shared/cosmos.ts:205:11)
+
+  console.log
+    [API] Successfully created 2 tasks with 0 subtasks (2 total pomodoros)
+
+      at server.ts:973:11
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=3f4fd628-13d1-410e-a2e7-73a6ae12401d
+
+      at server.ts:807:11
+
+  console.warn
+    [API] Validation failed: tasks must contain at least 1 task
+
+    [0m [90m 814 |[39m   [36mconst[39m validation [33m=[39m validateTaskBatch(body[33m.[39mtasks [33m||[39m [][33m,[39m { allowListCreation[33m:[39m [36mtrue[39m })[33m;[39m
+     [90m 815 |[39m   [36mif[39m ([33m![39mvalidation[33m.[39mvalid) {
+    [31m[1m>[22m[39m[90m 816 |[39m     console[33m.[39mwarn([32m`[API] Validation failed: ${validation.errors.join("; ")}`[39m)[33m;[39m
+     [90m     |[39m             [31m[1m^[22m[39m
+     [90m 817 |[39m     res[33m.[39mstatus([35m400[39m)[33m.[39mjson({
+     [90m 818 |[39m       error[33m:[39m [32m"INVALID_REQUEST"[39m[33m,[39m
+     [90m 819 |[39m       message[33m:[39m validation[33m.[39merrors[[35m0[39m][33m,[39m[0m
+
+      at server.ts:816:13
+      at server.ts:402:21
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at next (node_modules/express/lib/router/route.js:149:13)
+      at Route.dispatch (node_modules/express/lib/router/route.js:119:3)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at node_modules/express/lib/router/index.js:284:15
+      at router.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at urlencodedParser (node_modules/body-parser/lib/types/urlencoded.js:82:7)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at router.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at node_modules/body-parser/lib/read.js:137:5
+      at invokeCallback (node_modules/raw-body/index.js:238:16)
+      at done (node_modules/raw-body/index.js:227:7)
+      at IncomingMessage.onEnd (node_modules/raw-body/index.js:287:7)
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=95ef2fa2-2fec-4e36-9d43-e431dcf1bccd
+
+      at server.ts:807:11
+
+  console.warn
+    [API] Validation failed: tasks batch exceeds maximum size of 50 (received 51)
+
+    [0m [90m 814 |[39m   [36mconst[39m validation [33m=[39m validateTaskBatch(body[33m.[39mtasks [33m||[39m [][33m,[39m { allowListCreation[33m:[39m [36mtrue[39m })[33m;[39m
+     [90m 815 |[39m   [36mif[39m ([33m![39mvalidation[33m.[39mvalid) {
+    [31m[1m>[22m[39m[90m 816 |[39m     console[33m.[39mwarn([32m`[API] Validation failed: ${validation.errors.join("; ")}`[39m)[33m;[39m
+     [90m     |[39m             [31m[1m^[22m[39m
+     [90m 817 |[39m     res[33m.[39mstatus([35m400[39m)[33m.[39mjson({
+     [90m 818 |[39m       error[33m:[39m [32m"INVALID_REQUEST"[39m[33m,[39m
+     [90m 819 |[39m       message[33m:[39m validation[33m.[39merrors[[35m0[39m][33m,[39m[0m
+
+      at server.ts:816:13
+      at server.ts:402:21
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at next (node_modules/express/lib/router/route.js:149:13)
+      at Route.dispatch (node_modules/express/lib/router/route.js:119:3)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at node_modules/express/lib/router/index.js:284:15
+      at router.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at urlencodedParser (node_modules/body-parser/lib/types/urlencoded.js:82:7)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at router.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at node_modules/body-parser/lib/read.js:137:5
+      at invokeCallback (node_modules/raw-body/index.js:238:16)
+      at done (node_modules/raw-body/index.js:227:7)
+      at IncomingMessage.onEnd (node_modules/raw-body/index.js:287:7)
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=be300f76-59f4-425a-a09e-7ecaf723bdc3
+
+      at server.ts:807:11
+
+  console.log
+    [API] Resolving list by ID: list-personal-1
+
+      at server.ts:838:13
+
+  console.log
+    [API] Creating 50 tasks in atomic batch for listId=list-personal-1
+
+      at server.ts:918:11
+
+  console.log
+    [COSMOS] Successfully created 50 tasks in atomic batch for listId=list-personal-1, userId=test-user-a-uuid
+
+      at createTasksBatch (shared/cosmos.ts:205:11)
+
+  console.log
+    [API] Successfully created 50 tasks with 0 subtasks (50 total pomodoros)
+
+      at server.ts:973:11
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=8206915b-3671-4cbc-b01e-502fed46f15b
+
+      at server.ts:807:11
+
+  console.warn
+    [API] Validation failed: tasks[0].iterations must be an integer, not a decimal (received 1.5)
+
+    [0m [90m 814 |[39m   [36mconst[39m validation [33m=[39m validateTaskBatch(body[33m.[39mtasks [33m||[39m [][33m,[39m { allowListCreation[33m:[39m [36mtrue[39m })[33m;[39m
+     [90m 815 |[39m   [36mif[39m ([33m![39mvalidation[33m.[39mvalid) {
+    [31m[1m>[22m[39m[90m 816 |[39m     console[33m.[39mwarn([32m`[API] Validation failed: ${validation.errors.join("; ")}`[39m)[33m;[39m
+     [90m     |[39m             [31m[1m^[22m[39m
+     [90m 817 |[39m     res[33m.[39mstatus([35m400[39m)[33m.[39mjson({
+     [90m 818 |[39m       error[33m:[39m [32m"INVALID_REQUEST"[39m[33m,[39m
+     [90m 819 |[39m       message[33m:[39m validation[33m.[39merrors[[35m0[39m][33m,[39m[0m
+
+      at server.ts:816:13
+      at server.ts:402:21
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at next (node_modules/express/lib/router/route.js:149:13)
+      at Route.dispatch (node_modules/express/lib/router/route.js:119:3)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at node_modules/express/lib/router/index.js:284:15
+      at router.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at urlencodedParser (node_modules/body-parser/lib/types/urlencoded.js:82:7)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at router.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at node_modules/body-parser/lib/read.js:137:5
+      at invokeCallback (node_modules/raw-body/index.js:238:16)
+      at done (node_modules/raw-body/index.js:227:7)
+      at IncomingMessage.onEnd (node_modules/raw-body/index.js:287:7)
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=5a991d75-0cf6-4934-930e-fe0a2f8b56bf
+
+      at server.ts:807:11
+
+  console.warn
+    [API] Validation failed: tasks[0].iterations must be between 1 and 100 (received 0)
+
+    [0m [90m 814 |[39m   [36mconst[39m validation [33m=[39m validateTaskBatch(body[33m.[39mtasks [33m||[39m [][33m,[39m { allowListCreation[33m:[39m [36mtrue[39m })[33m;[39m
+     [90m 815 |[39m   [36mif[39m ([33m![39mvalidation[33m.[39mvalid) {
+    [31m[1m>[22m[39m[90m 816 |[39m     console[33m.[39mwarn([32m`[API] Validation failed: ${validation.errors.join("; ")}`[39m)[33m;[39m
+     [90m     |[39m             [31m[1m^[22m[39m
+     [90m 817 |[39m     res[33m.[39mstatus([35m400[39m)[33m.[39mjson({
+     [90m 818 |[39m       error[33m:[39m [32m"INVALID_REQUEST"[39m[33m,[39m
+     [90m 819 |[39m       message[33m:[39m validation[33m.[39merrors[[35m0[39m][33m,[39m[0m
+
+      at server.ts:816:13
+      at server.ts:402:21
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at next (node_modules/express/lib/router/route.js:149:13)
+      at Route.dispatch (node_modules/express/lib/router/route.js:119:3)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at node_modules/express/lib/router/index.js:284:15
+      at router.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at urlencodedParser (node_modules/body-parser/lib/types/urlencoded.js:82:7)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at router.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at node_modules/body-parser/lib/read.js:137:5
+      at invokeCallback (node_modules/raw-body/index.js:238:16)
+      at done (node_modules/raw-body/index.js:227:7)
+      at IncomingMessage.onEnd (node_modules/raw-body/index.js:287:7)
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=cb51e2a6-27ec-4da7-8597-cf726f16a94e
+
+      at server.ts:807:11
+
+  console.warn
+    [API] Validation failed: tasks[0].iterations must be between 1 and 100 (received 101)
+
+    [0m [90m 814 |[39m   [36mconst[39m validation [33m=[39m validateTaskBatch(body[33m.[39mtasks [33m||[39m [][33m,[39m { allowListCreation[33m:[39m [36mtrue[39m })[33m;[39m
+     [90m 815 |[39m   [36mif[39m ([33m![39mvalidation[33m.[39mvalid) {
+    [31m[1m>[22m[39m[90m 816 |[39m     console[33m.[39mwarn([32m`[API] Validation failed: ${validation.errors.join("; ")}`[39m)[33m;[39m
+     [90m     |[39m             [31m[1m^[22m[39m
+     [90m 817 |[39m     res[33m.[39mstatus([35m400[39m)[33m.[39mjson({
+     [90m 818 |[39m       error[33m:[39m [32m"INVALID_REQUEST"[39m[33m,[39m
+     [90m 819 |[39m       message[33m:[39m validation[33m.[39merrors[[35m0[39m][33m,[39m[0m
+
+      at server.ts:816:13
+      at server.ts:402:21
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at next (node_modules/express/lib/router/route.js:149:13)
+      at Route.dispatch (node_modules/express/lib/router/route.js:119:3)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at node_modules/express/lib/router/index.js:284:15
+      at router.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at urlencodedParser (node_modules/body-parser/lib/types/urlencoded.js:82:7)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at router.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at node_modules/body-parser/lib/read.js:137:5
+      at invokeCallback (node_modules/raw-body/index.js:238:16)
+      at done (node_modules/raw-body/index.js:227:7)
+      at IncomingMessage.onEnd (node_modules/raw-body/index.js:287:7)
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=e076953d-df41-4fa2-87cd-6d4735eaea8d
+
+      at server.ts:807:11
+
+  console.log
+    [API] Resolving list by ID: list-personal-1
+
+      at server.ts:838:13
+
+  console.log
+    [API] Creating 1 tasks in atomic batch for listId=list-personal-1
+
+      at server.ts:918:11
+
+  console.log
+    [COSMOS] Successfully created 1 tasks in atomic batch for listId=list-personal-1, userId=test-user-a-uuid
+
+      at createTasksBatch (shared/cosmos.ts:205:11)
+
+  console.log
+    [API] Successfully created 1 tasks with 0 subtasks (100 total pomodoros)
+
+      at server.ts:973:11
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=023c5025-1cc9-4aa2-afc2-fcf1f115739d
+
+      at server.ts:807:11
+
+  console.warn
+    [API] Validation failed: tasks[0].subtasks exceeds maximum of 20 (received 21)
+
+    [0m [90m 814 |[39m   [36mconst[39m validation [33m=[39m validateTaskBatch(body[33m.[39mtasks [33m||[39m [][33m,[39m { allowListCreation[33m:[39m [36mtrue[39m })[33m;[39m
+     [90m 815 |[39m   [36mif[39m ([33m![39mvalidation[33m.[39mvalid) {
+    [31m[1m>[22m[39m[90m 816 |[39m     console[33m.[39mwarn([32m`[API] Validation failed: ${validation.errors.join("; ")}`[39m)[33m;[39m
+     [90m     |[39m             [31m[1m^[22m[39m
+     [90m 817 |[39m     res[33m.[39mstatus([35m400[39m)[33m.[39mjson({
+     [90m 818 |[39m       error[33m:[39m [32m"INVALID_REQUEST"[39m[33m,[39m
+     [90m 819 |[39m       message[33m:[39m validation[33m.[39merrors[[35m0[39m][33m,[39m[0m
+
+      at server.ts:816:13
+      at server.ts:402:21
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at next (node_modules/express/lib/router/route.js:149:13)
+      at Route.dispatch (node_modules/express/lib/router/route.js:119:3)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at node_modules/express/lib/router/index.js:284:15
+      at router.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at urlencodedParser (node_modules/body-parser/lib/types/urlencoded.js:82:7)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at router.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at node_modules/body-parser/lib/read.js:137:5
+      at invokeCallback (node_modules/raw-body/index.js:238:16)
+      at done (node_modules/raw-body/index.js:227:7)
+      at IncomingMessage.onEnd (node_modules/raw-body/index.js:287:7)
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=68dc1524-4483-4d21-ac11-107acc5a9df4
+
+      at server.ts:807:11
+
+  console.warn
+    [API] Validation failed: tasks[0].subtasks[0].name is required and must be non-empty
+
+    [0m [90m 814 |[39m   [36mconst[39m validation [33m=[39m validateTaskBatch(body[33m.[39mtasks [33m||[39m [][33m,[39m { allowListCreation[33m:[39m [36mtrue[39m })[33m;[39m
+     [90m 815 |[39m   [36mif[39m ([33m![39mvalidation[33m.[39mvalid) {
+    [31m[1m>[22m[39m[90m 816 |[39m     console[33m.[39mwarn([32m`[API] Validation failed: ${validation.errors.join("; ")}`[39m)[33m;[39m
+     [90m     |[39m             [31m[1m^[22m[39m
+     [90m 817 |[39m     res[33m.[39mstatus([35m400[39m)[33m.[39mjson({
+     [90m 818 |[39m       error[33m:[39m [32m"INVALID_REQUEST"[39m[33m,[39m
+     [90m 819 |[39m       message[33m:[39m validation[33m.[39merrors[[35m0[39m][33m,[39m[0m
+
+      at server.ts:816:13
+      at server.ts:402:21
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at next (node_modules/express/lib/router/route.js:149:13)
+      at Route.dispatch (node_modules/express/lib/router/route.js:119:3)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at node_modules/express/lib/router/index.js:284:15
+      at router.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at urlencodedParser (node_modules/body-parser/lib/types/urlencoded.js:82:7)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at router.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at node_modules/body-parser/lib/read.js:137:5
+      at invokeCallback (node_modules/raw-body/index.js:238:16)
+      at done (node_modules/raw-body/index.js:227:7)
+      at IncomingMessage.onEnd (node_modules/raw-body/index.js:287:7)
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=84645833-4d72-4585-8f39-3a2c539bb226
+
+      at server.ts:807:11
+
+  console.log
+    [API] Resolving list by ID: list-personal-1
+
+      at server.ts:838:13
+
+  console.log
+    [API] Creating 1 tasks in atomic batch for listId=list-personal-1
+
+      at server.ts:918:11
+
+  console.log
+    [COSMOS] Successfully created 1 tasks in atomic batch for listId=list-personal-1, userId=test-user-a-uuid
+
+      at createTasksBatch (shared/cosmos.ts:205:11)
+
+  console.log
+    [API] Successfully created 1 tasks with 20 subtasks (21 total pomodoros)
+
+      at server.ts:973:11
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=e07e68e4-d008-469d-a35f-2ffc23510e4a
+
+      at server.ts:807:11
+
+  console.warn
+    [API] Validation failed: tasks[0].name is required and must be non-empty
+
+    [0m [90m 814 |[39m   [36mconst[39m validation [33m=[39m validateTaskBatch(body[33m.[39mtasks [33m||[39m [][33m,[39m { allowListCreation[33m:[39m [36mtrue[39m })[33m;[39m
+     [90m 815 |[39m   [36mif[39m ([33m![39mvalidation[33m.[39mvalid) {
+    [31m[1m>[22m[39m[90m 816 |[39m     console[33m.[39mwarn([32m`[API] Validation failed: ${validation.errors.join("; ")}`[39m)[33m;[39m
+     [90m     |[39m             [31m[1m^[22m[39m
+     [90m 817 |[39m     res[33m.[39mstatus([35m400[39m)[33m.[39mjson({
+     [90m 818 |[39m       error[33m:[39m [32m"INVALID_REQUEST"[39m[33m,[39m
+     [90m 819 |[39m       message[33m:[39m validation[33m.[39merrors[[35m0[39m][33m,[39m[0m
+
+      at server.ts:816:13
+      at server.ts:402:21
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at next (node_modules/express/lib/router/route.js:149:13)
+      at Route.dispatch (node_modules/express/lib/router/route.js:119:3)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at node_modules/express/lib/router/index.js:284:15
+      at router.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at urlencodedParser (node_modules/body-parser/lib/types/urlencoded.js:82:7)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at router.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at node_modules/body-parser/lib/read.js:137:5
+      at invokeCallback (node_modules/raw-body/index.js:238:16)
+      at done (node_modules/raw-body/index.js:227:7)
+      at IncomingMessage.onEnd (node_modules/raw-body/index.js:287:7)
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=839db882-0e2c-467a-8bf3-2eb247e636d3
+
+      at server.ts:807:11
+
+  console.log
+    [API] Resolving list by ID: list-personal-1
+
+      at server.ts:838:13
+
+  console.log
+    [API] Creating 1 tasks in atomic batch for listId=list-personal-1
+
+      at server.ts:918:11
+
+  console.log
+    [COSMOS] Successfully created 1 tasks in atomic batch for listId=list-personal-1, userId=test-user-a-uuid
+
+      at createTasksBatch (shared/cosmos.ts:205:11)
+
+  console.log
+    [API] Successfully created 1 tasks with 0 subtasks (1 total pomodoros)
+
+      at server.ts:973:11
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=bc67b052-e26e-44c9-aacf-f29dce88c347
+
+      at server.ts:807:11
+
+  console.log
+    [API] Resolving list by ID: list-personal-1
+
+      at server.ts:838:13
+
+  console.log
+    [API] Creating 1 tasks in atomic batch for listId=list-personal-1
+
+      at server.ts:918:11
+
+  console.log
+    [COSMOS] Successfully created 1 tasks in atomic batch for listId=list-personal-1, userId=test-user-a-uuid
+
+      at createTasksBatch (shared/cosmos.ts:205:11)
+
+  console.log
+    [API] Successfully created 1 tasks with 0 subtasks (1 total pomodoros)
+
+      at server.ts:973:11
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=95544cbc-d323-4c88-ab3e-46e827e1045b
+
+      at server.ts:807:11
+
+  console.log
+    [API] Resolving list by ID: list-personal-1
+
+      at server.ts:838:13
+
+  console.log
+    [API] Creating 1 tasks in atomic batch for listId=list-personal-1
+
+      at server.ts:918:11
+
+  console.log
+    [COSMOS] Successfully created 1 tasks in atomic batch for listId=list-personal-1, userId=test-user-a-uuid
+
+      at createTasksBatch (shared/cosmos.ts:205:11)
+
+  console.log
+    [API] Successfully created 1 tasks with 0 subtasks (1 total pomodoros)
+
+      at server.ts:973:11
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=8bd7d09a-5e28-48e0-a910-d4cf353b5918
+
+      at server.ts:807:11
+
+  console.warn
+    [API] Neither listId nor listName provided
+
+    [0m [90m 904 |[39m     }
+     [90m 905 |[39m   } [36melse[39m {
+    [31m[1m>[22m[39m[90m 906 |[39m     console[33m.[39mwarn([32m`[API] Neither listId nor listName provided`[39m)[33m;[39m
+     [90m     |[39m             [31m[1m^[22m[39m
+     [90m 907 |[39m     res[33m.[39mstatus([35m400[39m)[33m.[39mjson({
+     [90m 908 |[39m       error[33m:[39m [32m"INVALID_REQUEST"[39m[33m,[39m
+     [90m 909 |[39m       message[33m:[39m [32m"Either listId or listName must be provided"[39m[33m,[39m[0m
+
+      at server.ts:906:13
+      at server.ts:402:21
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at next (node_modules/express/lib/router/route.js:149:13)
+      at Route.dispatch (node_modules/express/lib/router/route.js:119:3)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at node_modules/express/lib/router/index.js:284:15
+      at router.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at urlencodedParser (node_modules/body-parser/lib/types/urlencoded.js:82:7)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at router.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at node_modules/body-parser/lib/read.js:137:5
+      at invokeCallback (node_modules/raw-body/index.js:238:16)
+      at done (node_modules/raw-body/index.js:227:7)
+      at IncomingMessage.onEnd (node_modules/raw-body/index.js:287:7)
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=5ee4b148-30c9-46da-869b-695ee35d7691
+
+      at server.ts:807:11
+
+  console.log
+    [API] Resolving list by ID: nonexistent-id
+
+      at server.ts:838:13
+
+  console.warn
+    [API] List not found: nonexistent-id
+
+    [0m [90m 840 |[39m       [36mconst[39m { resource[33m:[39m list } [33m=[39m [36mawait[39m lists[33m.[39mitem(providedListId[33m,[39m userId)[33m.[39mread()[33m;[39m
+     [90m 841 |[39m       [36mif[39m ([33m![39mlist) {
+    [31m[1m>[22m[39m[90m 842 |[39m         console[33m.[39mwarn([32m`[API] List not found: ${providedListId}`[39m)[33m;[39m
+     [90m     |[39m                 [31m[1m^[22m[39m
+     [90m 843 |[39m         res[33m.[39mstatus([35m400[39m)[33m.[39mjson({
+     [90m 844 |[39m           error[33m:[39m [32m"LIST_NOT_FOUND"[39m[33m,[39m
+     [90m 845 |[39m           message[33m:[39m [32m`List with ID '${providedListId}' not found`[39m[33m,[39m[0m
+
+      at server.ts:842:17
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=485f261c-e9a4-4660-a7a6-ffa255ee9faf
+
+      at server.ts:807:11
+
+  console.log
+    [API] Resolving list by ID: list-personal-1
+
+      at server.ts:838:13
+
+  console.log
+    [API] Creating 10 tasks in atomic batch for listId=list-personal-1
+
+      at server.ts:918:11
+
+  console.log
+    [COSMOS] Successfully created 10 tasks in atomic batch for listId=list-personal-1, userId=test-user-a-uuid
+
+      at createTasksBatch (shared/cosmos.ts:205:11)
+
+  console.log
+    [API] Successfully created 10 tasks with 0 subtasks (10 total pomodoros)
+
+      at server.ts:973:11
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=82a218b9-b47b-4a97-831e-1592fd7f3c76
+
+      at server.ts:807:11
+
+  console.log
+    [API] Resolving list by ID: list-personal-1
+
+      at server.ts:838:13
+
+  console.log
+    [API] Creating 5 tasks in atomic batch for listId=list-personal-1
+
+      at server.ts:918:11
+
+  console.log
+    [COSMOS] Successfully created 5 tasks in atomic batch for listId=list-personal-1, userId=test-user-a-uuid
+
+      at createTasksBatch (shared/cosmos.ts:205:11)
+
+  console.log
+    [API] Successfully created 5 tasks with 0 subtasks (5 total pomodoros)
+
+      at server.ts:973:11
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=4a6faf26-9307-432c-85e1-ad0758051f5f
+
+      at server.ts:807:11
+
+  console.log
+    [API] Resolving list by name: Personal
+
+      at server.ts:862:13
+
+  console.log
+    [API] Found existing list: list-personal-1
+
+      at server.ts:876:15
+
+  console.log
+    [API] Creating 1 tasks in atomic batch for listId=list-personal-1
+
+      at server.ts:918:11
+
+  console.log
+    [COSMOS] Successfully created 1 tasks in atomic batch for listId=list-personal-1, userId=test-user-a-uuid
+
+      at createTasksBatch (shared/cosmos.ts:205:11)
+
+  console.log
+    [API] Successfully created 1 tasks with 0 subtasks (1 total pomodoros)
+
+      at server.ts:973:11
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=f80b4ba0-c3c8-4bdf-88eb-5f59bfcf82e0
+
+      at server.ts:807:11
+
+  console.log
+    [API] Resolving list by name: Personal
+
+      at server.ts:862:13
+
+  console.log
+    [API] Found existing list: list-personal-1
+
+      at server.ts:876:15
+
+  console.log
+    [API] Creating 1 tasks in atomic batch for listId=list-personal-1
+
+      at server.ts:918:11
+
+  console.log
+    [COSMOS] Successfully created 1 tasks in atomic batch for listId=list-personal-1, userId=test-user-a-uuid
+
+      at createTasksBatch (shared/cosmos.ts:205:11)
+
+  console.log
+    [API] Successfully created 1 tasks with 0 subtasks (1 total pomodoros)
+
+      at server.ts:973:11
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=d067c2b1-fd4f-4fdd-807e-65f4e743ecc8
+
+      at server.ts:807:11
+
+  console.warn
+    [API] Validation failed: tasks must contain at least 1 task
+
+    [0m [90m 814 |[39m   [36mconst[39m validation [33m=[39m validateTaskBatch(body[33m.[39mtasks [33m||[39m [][33m,[39m { allowListCreation[33m:[39m [36mtrue[39m })[33m;[39m
+     [90m 815 |[39m   [36mif[39m ([33m![39mvalidation[33m.[39mvalid) {
+    [31m[1m>[22m[39m[90m 816 |[39m     console[33m.[39mwarn([32m`[API] Validation failed: ${validation.errors.join("; ")}`[39m)[33m;[39m
+     [90m     |[39m             [31m[1m^[22m[39m
+     [90m 817 |[39m     res[33m.[39mstatus([35m400[39m)[33m.[39mjson({
+     [90m 818 |[39m       error[33m:[39m [32m"INVALID_REQUEST"[39m[33m,[39m
+     [90m 819 |[39m       message[33m:[39m validation[33m.[39merrors[[35m0[39m][33m,[39m[0m
+
+      at server.ts:816:13
+      at server.ts:402:21
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at next (node_modules/express/lib/router/route.js:149:13)
+      at Route.dispatch (node_modules/express/lib/router/route.js:119:3)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at node_modules/express/lib/router/index.js:284:15
+      at router.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at urlencodedParser (node_modules/body-parser/lib/types/urlencoded.js:82:7)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at router.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at node_modules/body-parser/lib/read.js:137:5
+      at invokeCallback (node_modules/raw-body/index.js:238:16)
+      at done (node_modules/raw-body/index.js:227:7)
+      at IncomingMessage.onEnd (node_modules/raw-body/index.js:287:7)
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=7fd15114-4b0c-4b27-a34e-e00b955ea0ad
+
+      at server.ts:807:11
+
+  console.log
+    [API] Resolving list by name: NewList
+
+      at server.ts:862:13
+
+  console.log
+    [API] Found existing list: fe4dfd9e-5419-404a-829d-f296307989e5
+
+      at server.ts:876:15
+
+  console.log
+    [API] Creating 1 tasks in atomic batch for listId=fe4dfd9e-5419-404a-829d-f296307989e5
+
+      at server.ts:918:11
+
+  console.log
+    [COSMOS] Successfully created 1 tasks in atomic batch for listId=fe4dfd9e-5419-404a-829d-f296307989e5, userId=test-user-a-uuid
+
+      at createTasksBatch (shared/cosmos.ts:205:11)
+
+  console.log
+    [API] Successfully created 1 tasks with 0 subtasks (1 total pomodoros)
+
+      at server.ts:973:11
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=5793f02f-a5c0-4958-9d1d-bd04ef7f1dfc
+
+      at server.ts:807:11
+
+  console.log
+    [API] Resolving list by name: Personal
+
+      at server.ts:862:13
+
+  console.log
+    [API] Found existing list: list-personal-1
+
+      at server.ts:876:15
+
+  console.log
+    [API] Creating 1 tasks in atomic batch for listId=list-personal-1
+
+      at server.ts:918:11
+
+  console.log
+    [COSMOS] Successfully created 1 tasks in atomic batch for listId=list-personal-1, userId=test-user-a-uuid
+
+      at createTasksBatch (shared/cosmos.ts:205:11)
+
+  console.log
+    [API] Successfully created 1 tasks with 0 subtasks (1 total pomodoros)
+
+      at server.ts:973:11
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=03d335e4-eb5e-4867-a955-4d6400aa57a9
+
+      at server.ts:807:11
+
+  console.log
+    [API] Resolving list by name: Work
+
+      at server.ts:862:13
+
+  console.log
+    [API] Found existing list: list-work-1
+
+      at server.ts:876:15
+
+  console.log
+    [API] Creating 1 tasks in atomic batch for listId=list-work-1
+
+      at server.ts:918:11
+
+  console.log
+    [COSMOS] Successfully created 1 tasks in atomic batch for listId=list-work-1, userId=test-user-a-uuid
+
+      at createTasksBatch (shared/cosmos.ts:205:11)
+
+  console.log
+    [API] Successfully created 1 tasks with 5 subtasks (8 total pomodoros)
+
+      at server.ts:973:11
+
+  console.warn
+    [AUTH] JWT validation error: jwt malformed
+
+    [0m [90m 178 |[39m       console[33m.[39mwarn([32m"[AUTH] JWT token expired:"[39m[33m,[39m error[33m.[39mmessage)[33m;[39m
+     [90m 179 |[39m     } [36melse[39m [36mif[39m (error [36minstanceof[39m jwt[33m.[39m[33mJsonWebTokenError[39m) {
+    [31m[1m>[22m[39m[90m 180 |[39m       console[33m.[39mwarn([32m"[AUTH] JWT validation error:"[39m[33m,[39m error[33m.[39mmessage)[33m;[39m
+     [90m     |[39m               [31m[1m^[22m[39m
+     [90m 181 |[39m     } [36melse[39m {
+     [90m 182 |[39m       console[33m.[39mwarn([32m"[AUTH] Unexpected JWT error:"[39m[33m,[39m error)[33m;[39m
+     [90m 183 |[39m     }[0m
+
+      at verifyBearerToken (shared/auth.ts:180:15)
+      at getUserIdFromRequest (shared/auth.ts:201:25)
+      at server.ts:799:43
+      at server.ts:402:21
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at next (node_modules/express/lib/router/route.js:149:13)
+      at Route.dispatch (node_modules/express/lib/router/route.js:119:3)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at node_modules/express/lib/router/index.js:284:15
+      at router.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at urlencodedParser (node_modules/body-parser/lib/types/urlencoded.js:82:7)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at router.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at node_modules/body-parser/lib/read.js:137:5
+      at invokeCallback (node_modules/raw-body/index.js:238:16)
+      at done (node_modules/raw-body/index.js:227:7)
+      at IncomingMessage.onEnd (node_modules/raw-body/index.js:287:7)
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=2fc9d21d-f869-4451-b80c-0d147f07f7e4
+
+      at server.ts:807:11
+
+  console.warn
+    [API] Validation failed: tasks batch exceeds maximum size of 50 (received 51)
+
+    [0m [90m 814 |[39m   [36mconst[39m validation [33m=[39m validateTaskBatch(body[33m.[39mtasks [33m||[39m [][33m,[39m { allowListCreation[33m:[39m [36mtrue[39m })[33m;[39m
+     [90m 815 |[39m   [36mif[39m ([33m![39mvalidation[33m.[39mvalid) {
+    [31m[1m>[22m[39m[90m 816 |[39m     console[33m.[39mwarn([32m`[API] Validation failed: ${validation.errors.join("; ")}`[39m)[33m;[39m
+     [90m     |[39m             [31m[1m^[22m[39m
+     [90m 817 |[39m     res[33m.[39mstatus([35m400[39m)[33m.[39mjson({
+     [90m 818 |[39m       error[33m:[39m [32m"INVALID_REQUEST"[39m[33m,[39m
+     [90m 819 |[39m       message[33m:[39m validation[33m.[39merrors[[35m0[39m][33m,[39m[0m
+
+      at server.ts:816:13
+      at server.ts:402:21
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at next (node_modules/express/lib/router/route.js:149:13)
+      at Route.dispatch (node_modules/express/lib/router/route.js:119:3)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at node_modules/express/lib/router/index.js:284:15
+      at router.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at urlencodedParser (node_modules/body-parser/lib/types/urlencoded.js:82:7)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at router.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at node_modules/body-parser/lib/read.js:137:5
+      at invokeCallback (node_modules/raw-body/index.js:238:16)
+      at done (node_modules/raw-body/index.js:227:7)
+      at IncomingMessage.onEnd (node_modules/raw-body/index.js:287:7)
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=5203b115-a01d-4a41-b4bf-efabcab7aad3
+
+      at server.ts:807:11
+
+  console.log
+    [API] Resolving list by ID: nonexistent
+
+      at server.ts:838:13
+
+  console.warn
+    [API] List not found: nonexistent
+
+    [0m [90m 840 |[39m       [36mconst[39m { resource[33m:[39m list } [33m=[39m [36mawait[39m lists[33m.[39mitem(providedListId[33m,[39m userId)[33m.[39mread()[33m;[39m
+     [90m 841 |[39m       [36mif[39m ([33m![39mlist) {
+    [31m[1m>[22m[39m[90m 842 |[39m         console[33m.[39mwarn([32m`[API] List not found: ${providedListId}`[39m)[33m;[39m
+     [90m     |[39m                 [31m[1m^[22m[39m
+     [90m 843 |[39m         res[33m.[39mstatus([35m400[39m)[33m.[39mjson({
+     [90m 844 |[39m           error[33m:[39m [32m"LIST_NOT_FOUND"[39m[33m,[39m
+     [90m 845 |[39m           message[33m:[39m [32m`List with ID '${providedListId}' not found`[39m[33m,[39m[0m
+
+      at server.ts:842:17
+
+  console.warn
+    [AUTH] JWT validation error: jwt malformed
+
+    [0m [90m 178 |[39m       console[33m.[39mwarn([32m"[AUTH] JWT token expired:"[39m[33m,[39m error[33m.[39mmessage)[33m;[39m
+     [90m 179 |[39m     } [36melse[39m [36mif[39m (error [36minstanceof[39m jwt[33m.[39m[33mJsonWebTokenError[39m) {
+    [31m[1m>[22m[39m[90m 180 |[39m       console[33m.[39mwarn([32m"[AUTH] JWT validation error:"[39m[33m,[39m error[33m.[39mmessage)[33m;[39m
+     [90m     |[39m               [31m[1m^[22m[39m
+     [90m 181 |[39m     } [36melse[39m {
+     [90m 182 |[39m       console[33m.[39mwarn([32m"[AUTH] Unexpected JWT error:"[39m[33m,[39m error)[33m;[39m
+     [90m 183 |[39m     }[0m
+
+      at verifyBearerToken (shared/auth.ts:180:15)
+      at getUserIdFromRequest (shared/auth.ts:201:25)
+      at server.ts:799:43
+      at server.ts:402:21
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at next (node_modules/express/lib/router/route.js:149:13)
+      at Route.dispatch (node_modules/express/lib/router/route.js:119:3)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at node_modules/express/lib/router/index.js:284:15
+      at router.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at urlencodedParser (node_modules/body-parser/lib/types/urlencoded.js:82:7)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at router.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at node_modules/body-parser/lib/read.js:137:5
+      at invokeCallback (node_modules/raw-body/index.js:238:16)
+      at done (node_modules/raw-body/index.js:227:7)
+      at IncomingMessage.onEnd (node_modules/raw-body/index.js:287:7)
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=4d71f706-7348-4378-8c28-15dead662da0
+
+      at server.ts:807:11
+
+  console.warn
+    [API] Validation failed: tasks must contain at least 1 task
+
+    [0m [90m 814 |[39m   [36mconst[39m validation [33m=[39m validateTaskBatch(body[33m.[39mtasks [33m||[39m [][33m,[39m { allowListCreation[33m:[39m [36mtrue[39m })[33m;[39m
+     [90m 815 |[39m   [36mif[39m ([33m![39mvalidation[33m.[39mvalid) {
+    [31m[1m>[22m[39m[90m 816 |[39m     console[33m.[39mwarn([32m`[API] Validation failed: ${validation.errors.join("; ")}`[39m)[33m;[39m
+     [90m     |[39m             [31m[1m^[22m[39m
+     [90m 817 |[39m     res[33m.[39mstatus([35m400[39m)[33m.[39mjson({
+     [90m 818 |[39m       error[33m:[39m [32m"INVALID_REQUEST"[39m[33m,[39m
+     [90m 819 |[39m       message[33m:[39m validation[33m.[39merrors[[35m0[39m][33m,[39m[0m
+
+      at server.ts:816:13
+      at server.ts:402:21
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at next (node_modules/express/lib/router/route.js:149:13)
+      at Route.dispatch (node_modules/express/lib/router/route.js:119:3)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at node_modules/express/lib/router/index.js:284:15
+      at router.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at urlencodedParser (node_modules/body-parser/lib/types/urlencoded.js:82:7)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at router.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at node_modules/body-parser/lib/read.js:137:5
+      at invokeCallback (node_modules/raw-body/index.js:238:16)
+      at done (node_modules/raw-body/index.js:227:7)
+      at IncomingMessage.onEnd (node_modules/raw-body/index.js:287:7)
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=665048ed-365b-4e5e-8f14-ff810b5df528
+
+      at server.ts:807:11
+
+  console.log
+    [API] Resolving list by ID: list-personal-1
+
+      at server.ts:838:13
+
+  console.log
+    [API] Creating 1 tasks in atomic batch for listId=list-personal-1
+
+      at server.ts:918:11
+
+  console.log
+    [COSMOS] Successfully created 1 tasks in atomic batch for listId=list-personal-1, userId=test-user-a-uuid
+
+      at createTasksBatch (shared/cosmos.ts:205:11)
+
+  console.log
+    [API] Successfully created 1 tasks with 0 subtasks (1 total pomodoros)
+
+      at server.ts:973:11
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=4b2dd897-57b6-47da-92de-eff474b269b9
+
+      at server.ts:807:11
+
+  console.log
+    [API] Resolving list by name: Personal
+
+      at server.ts:862:13
+
+  console.log
+    [API] Found existing list: list-personal-1
+
+      at server.ts:876:15
+
+  console.log
+    [API] Creating 1 tasks in atomic batch for listId=list-personal-1
+
+      at server.ts:918:11
+
+  console.log
+    [COSMOS] Successfully created 1 tasks in atomic batch for listId=list-personal-1, userId=test-user-a-uuid
+
+      at createTasksBatch (shared/cosmos.ts:205:11)
+
+  console.log
+    [API] Successfully created 1 tasks with 0 subtasks (1 total pomodoros)
+
+      at server.ts:973:11
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=4bd1d9ff-3a35-4171-876a-7c4cfe61fbae
+
+      at server.ts:807:11
+
+  console.warn
+    [API] Validation failed: tasks must contain at least 1 task
+
+    [0m [90m 814 |[39m   [36mconst[39m validation [33m=[39m validateTaskBatch(body[33m.[39mtasks [33m||[39m [][33m,[39m { allowListCreation[33m:[39m [36mtrue[39m })[33m;[39m
+     [90m 815 |[39m   [36mif[39m ([33m![39mvalidation[33m.[39mvalid) {
+    [31m[1m>[22m[39m[90m 816 |[39m     console[33m.[39mwarn([32m`[API] Validation failed: ${validation.errors.join("; ")}`[39m)[33m;[39m
+     [90m     |[39m             [31m[1m^[22m[39m
+     [90m 817 |[39m     res[33m.[39mstatus([35m400[39m)[33m.[39mjson({
+     [90m 818 |[39m       error[33m:[39m [32m"INVALID_REQUEST"[39m[33m,[39m
+     [90m 819 |[39m       message[33m:[39m validation[33m.[39merrors[[35m0[39m][33m,[39m[0m
+
+      at server.ts:816:13
+      at server.ts:402:21
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at next (node_modules/express/lib/router/route.js:149:13)
+      at Route.dispatch (node_modules/express/lib/router/route.js:119:3)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at node_modules/express/lib/router/index.js:284:15
+      at router.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at urlencodedParser (node_modules/body-parser/lib/types/urlencoded.js:82:7)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at router.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at node_modules/body-parser/lib/read.js:137:5
+      at invokeCallback (node_modules/raw-body/index.js:238:16)
+      at done (node_modules/raw-body/index.js:227:7)
+      at IncomingMessage.onEnd (node_modules/raw-body/index.js:287:7)
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=4c31a23b-6fdf-4d36-877c-4d8c250f6a81
+
+      at server.ts:807:11
+
+  console.log
+    [API] Resolving list by ID: nonexistent
+
+      at server.ts:838:13
+
+  console.warn
+    [API] List not found: nonexistent
+
+    [0m [90m 840 |[39m       [36mconst[39m { resource[33m:[39m list } [33m=[39m [36mawait[39m lists[33m.[39mitem(providedListId[33m,[39m userId)[33m.[39mread()[33m;[39m
+     [90m 841 |[39m       [36mif[39m ([33m![39mlist) {
+    [31m[1m>[22m[39m[90m 842 |[39m         console[33m.[39mwarn([32m`[API] List not found: ${providedListId}`[39m)[33m;[39m
+     [90m     |[39m                 [31m[1m^[22m[39m
+     [90m 843 |[39m         res[33m.[39mstatus([35m400[39m)[33m.[39mjson({
+     [90m 844 |[39m           error[33m:[39m [32m"LIST_NOT_FOUND"[39m[33m,[39m
+     [90m 845 |[39m           message[33m:[39m [32m`List with ID '${providedListId}' not found`[39m[33m,[39m[0m
+
+      at server.ts:842:17
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=4311daca-b80d-44b5-8db9-9f1dfbd261a1
+
+      at server.ts:807:11
+
+  console.log
+    [API] Resolving list by name: Personal
+
+      at server.ts:862:13
+
+  console.log
+    [API] Found existing list: list-personal-1
+
+      at server.ts:876:15
+
+  console.log
+    [API] Creating 1 tasks in atomic batch for listId=list-personal-1
+
+      at server.ts:918:11
+
+  console.log
+    [COSMOS] Successfully created 1 tasks in atomic batch for listId=list-personal-1, userId=test-user-a-uuid
+
+      at createTasksBatch (shared/cosmos.ts:205:11)
+
+  console.log
+    [API] Successfully created 1 tasks with 0 subtasks (1 total pomodoros)
+
+      at server.ts:973:11
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=d29c7164-a85a-4424-b84a-13972f71be46
+
+      at server.ts:807:11
+
+  console.log
+    [API] Resolving list by ID: list-personal-1
+
+      at server.ts:838:13
+
+  console.log
+    [API] Creating 1 tasks in atomic batch for listId=list-personal-1
+
+      at server.ts:918:11
+
+  console.log
+    [COSMOS] Successfully created 1 tasks in atomic batch for listId=list-personal-1, userId=test-user-a-uuid
+
+      at createTasksBatch (shared/cosmos.ts:205:11)
+
+  console.log
+    [API] Successfully created 1 tasks with 0 subtasks (1 total pomodoros)
+
+      at server.ts:973:11
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-b-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-b-uuid, requestId=60f4ecf9-2822-4e26-8904-0cc3c0483623
+
+      at server.ts:807:11
+
+  console.log
+    [API] Resolving list by ID: list-personal-1
+
+      at server.ts:838:13
+
+  console.warn
+    [API] List not found: list-personal-1
+
+    [0m [90m 840 |[39m       [36mconst[39m { resource[33m:[39m list } [33m=[39m [36mawait[39m lists[33m.[39mitem(providedListId[33m,[39m userId)[33m.[39mread()[33m;[39m
+     [90m 841 |[39m       [36mif[39m ([33m![39mlist) {
+    [31m[1m>[22m[39m[90m 842 |[39m         console[33m.[39mwarn([32m`[API] List not found: ${providedListId}`[39m)[33m;[39m
+     [90m     |[39m                 [31m[1m^[22m[39m
+     [90m 843 |[39m         res[33m.[39mstatus([35m400[39m)[33m.[39mjson({
+     [90m 844 |[39m           error[33m:[39m [32m"LIST_NOT_FOUND"[39m[33m,[39m
+     [90m 845 |[39m           message[33m:[39m [32m`List with ID '${providedListId}' not found`[39m[33m,[39m[0m
+
+      at server.ts:842:17
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=3dc4b29d-3ea5-422f-9dd2-c017f5d0dd2d
+
+      at server.ts:807:11
+
+  console.log
+    [API] Resolving list by name: Personal
+
+      at server.ts:862:13
+
+  console.log
+    [API] Found existing list: list-personal-1
+
+      at server.ts:876:15
+
+  console.log
+    [API] Creating 1 tasks in atomic batch for listId=list-personal-1
+
+      at server.ts:918:11
+
+  console.log
+    [COSMOS] Successfully created 1 tasks in atomic batch for listId=list-personal-1, userId=test-user-a-uuid
+
+      at createTasksBatch (shared/cosmos.ts:205:11)
+
+  console.log
+    [API] Successfully created 1 tasks with 0 subtasks (1 total pomodoros)
+
+      at server.ts:973:11
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-b-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-b-uuid, requestId=29f0a207-c59e-46d6-9fd3-574ae226e5b0
+
+      at server.ts:807:11
+
+  console.log
+    [API] Resolving list by name: Personal
+
+      at server.ts:862:13
+
+  console.warn
+    [API] List not found and auto-create disabled: Personal
+
+    [0m [90m 894 |[39m       listCreated [33m=[39m [36mtrue[39m[33m;[39m
+     [90m 895 |[39m     } [36melse[39m {
+    [31m[1m>[22m[39m[90m 896 |[39m       console[33m.[39mwarn([32m`[API] List not found and auto-create disabled: ${providedListName}`[39m)[33m;[39m
+     [90m     |[39m               [31m[1m^[22m[39m
+     [90m 897 |[39m       res[33m.[39mstatus([35m400[39m)[33m.[39mjson({
+     [90m 898 |[39m         error[33m:[39m [32m"LIST_NOT_FOUND"[39m[33m,[39m
+     [90m 899 |[39m         message[33m:[39m [32m`List '${providedListName}' not found. Set createListIfMissing=true to auto-create.`[39m[33m,[39m[0m
+
+      at server.ts:896:15
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=f26d0900-aa84-4d32-bdbf-f75486251ead
+
+      at server.ts:807:11
+
+  console.log
+    [API] Resolving list by ID: list-personal-1
+
+      at server.ts:838:13
+
+  console.log
+    [API] Creating 1 tasks in atomic batch for listId=list-personal-1
+
+      at server.ts:918:11
+
+  console.log
+    [COSMOS] Successfully created 1 tasks in atomic batch for listId=list-personal-1, userId=test-user-a-uuid
+
+      at createTasksBatch (shared/cosmos.ts:205:11)
+
+  console.log
+    [API] Successfully created 1 tasks with 0 subtasks (1 total pomodoros)
+
+      at server.ts:973:11
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=e34965d2-ccbb-4413-85d4-a91bab9d39d6
+
+      at server.ts:807:11
+
+  console.log
+    [API] Resolving list by name: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+
+      at server.ts:862:13
+
+  console.warn
+    [API] List not found and auto-create disabled: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+
+    [0m [90m 894 |[39m       listCreated [33m=[39m [36mtrue[39m[33m;[39m
+     [90m 895 |[39m     } [36melse[39m {
+    [31m[1m>[22m[39m[90m 896 |[39m       console[33m.[39mwarn([32m`[API] List not found and auto-create disabled: ${providedListName}`[39m)[33m;[39m
+     [90m     |[39m               [31m[1m^[22m[39m
+     [90m 897 |[39m       res[33m.[39mstatus([35m400[39m)[33m.[39mjson({
+     [90m 898 |[39m         error[33m:[39m [32m"LIST_NOT_FOUND"[39m[33m,[39m
+     [90m 899 |[39m         message[33m:[39m [32m`List '${providedListName}' not found. Set createListIfMissing=true to auto-create.`[39m[33m,[39m[0m
+
+      at server.ts:896:15
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=5214824e-32e1-4592-9dc4-6e2721681d46
+
+      at server.ts:807:11
+
+  console.warn
+    [API] Validation failed: tasks[0].name is required and must be non-empty
+
+    [0m [90m 814 |[39m   [36mconst[39m validation [33m=[39m validateTaskBatch(body[33m.[39mtasks [33m||[39m [][33m,[39m { allowListCreation[33m:[39m [36mtrue[39m })[33m;[39m
+     [90m 815 |[39m   [36mif[39m ([33m![39mvalidation[33m.[39mvalid) {
+    [31m[1m>[22m[39m[90m 816 |[39m     console[33m.[39mwarn([32m`[API] Validation failed: ${validation.errors.join("; ")}`[39m)[33m;[39m
+     [90m     |[39m             [31m[1m^[22m[39m
+     [90m 817 |[39m     res[33m.[39mstatus([35m400[39m)[33m.[39mjson({
+     [90m 818 |[39m       error[33m:[39m [32m"INVALID_REQUEST"[39m[33m,[39m
+     [90m 819 |[39m       message[33m:[39m validation[33m.[39merrors[[35m0[39m][33m,[39m[0m
+
+      at server.ts:816:13
+      at server.ts:402:21
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at next (node_modules/express/lib/router/route.js:149:13)
+      at Route.dispatch (node_modules/express/lib/router/route.js:119:3)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at node_modules/express/lib/router/index.js:284:15
+      at router.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at urlencodedParser (node_modules/body-parser/lib/types/urlencoded.js:82:7)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at router.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at node_modules/body-parser/lib/read.js:137:5
+      at invokeCallback (node_modules/raw-body/index.js:238:16)
+      at done (node_modules/raw-body/index.js:227:7)
+      at IncomingMessage.onEnd (node_modules/raw-body/index.js:287:7)
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=2fc1efef-1bf3-4cd1-a823-ed05ca8da431
+
+      at server.ts:807:11
+
+  console.log
+    [API] Resolving list by name: Personal
+
+      at server.ts:862:13
+
+  console.log
+    [API] Found existing list: list-personal-1
+
+      at server.ts:876:15
+
+  console.log
+    [API] Creating 1 tasks in atomic batch for listId=list-personal-1
+
+      at server.ts:918:11
+
+  console.log
+    [COSMOS] Successfully created 1 tasks in atomic batch for listId=list-personal-1, userId=test-user-a-uuid
+
+      at createTasksBatch (shared/cosmos.ts:205:11)
+
+  console.log
+    [API] Successfully created 1 tasks with 0 subtasks (1 total pomodoros)
+
+      at server.ts:973:11
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=ed44a9cd-d26f-448a-ac13-8a884e6c5ea6
+
+      at server.ts:807:11
+
+  console.log
+    [API] Resolving list by ID: list-personal-1
+
+      at server.ts:838:13
+
+  console.log
+    [API] Creating 2 tasks in atomic batch for listId=list-personal-1
+
+      at server.ts:918:11
+
+  console.log
+    [COSMOS] Successfully created 2 tasks in atomic batch for listId=list-personal-1, userId=test-user-a-uuid
+
+      at createTasksBatch (shared/cosmos.ts:205:11)
+
+  console.log
+    [API] Successfully created 2 tasks with 0 subtasks (2 total pomodoros)
+
+      at server.ts:973:11
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=5cffb975-20b5-4cd1-87aa-12067cc13676
+
+      at server.ts:807:11
+
+  console.log
+    [API] Resolving list by ID: list-personal-1
+
+      at server.ts:838:13
+
+  console.log
+    [API] Creating 1 tasks in atomic batch for listId=list-personal-1
+
+      at server.ts:918:11
+
+  console.log
+    [COSMOS] Successfully created 1 tasks in atomic batch for listId=list-personal-1, userId=test-user-a-uuid
+
+      at createTasksBatch (shared/cosmos.ts:205:11)
+
+  console.log
+    [API] Successfully created 1 tasks with 20 subtasks (120 total pomodoros)
+
+      at server.ts:973:11
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] GET /api/ai/lists/search - authMode=jwt, userId=test-user-a-uuid
+
+      at server.ts:705:11
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=0e7c6ffc-be2c-4553-974c-e49aa60ed636
+
+      at server.ts:807:11
+
+  console.warn
+    [API] Validation failed: tasks[0].iterations must be between 1 and 100 (received 0)
+
+    [0m [90m 814 |[39m   [36mconst[39m validation [33m=[39m validateTaskBatch(body[33m.[39mtasks [33m||[39m [][33m,[39m { allowListCreation[33m:[39m [36mtrue[39m })[33m;[39m
+     [90m 815 |[39m   [36mif[39m ([33m![39mvalidation[33m.[39mvalid) {
+    [31m[1m>[22m[39m[90m 816 |[39m     console[33m.[39mwarn([32m`[API] Validation failed: ${validation.errors.join("; ")}`[39m)[33m;[39m
+     [90m     |[39m             [31m[1m^[22m[39m
+     [90m 817 |[39m     res[33m.[39mstatus([35m400[39m)[33m.[39mjson({
+     [90m 818 |[39m       error[33m:[39m [32m"INVALID_REQUEST"[39m[33m,[39m
+     [90m 819 |[39m       message[33m:[39m validation[33m.[39merrors[[35m0[39m][33m,[39m[0m
+
+      at server.ts:816:13
+      at server.ts:402:21
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at next (node_modules/express/lib/router/route.js:149:13)
+      at Route.dispatch (node_modules/express/lib/router/route.js:119:3)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at node_modules/express/lib/router/index.js:284:15
+      at router.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at urlencodedParser (node_modules/body-parser/lib/types/urlencoded.js:82:7)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at router.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at node_modules/body-parser/lib/read.js:137:5
+      at invokeCallback (node_modules/raw-body/index.js:238:16)
+      at done (node_modules/raw-body/index.js:227:7)
+      at IncomingMessage.onEnd (node_modules/raw-body/index.js:287:7)
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=0276298b-0c00-4fee-9eb1-d58396544a2f
+
+      at server.ts:807:11
+
+  console.log
+    [API] Resolving list by ID: list-personal-1
+
+      at server.ts:838:13
+
+  console.log
+    [API] Creating 1 tasks in atomic batch for listId=list-personal-1
+
+      at server.ts:918:11
+
+  console.log
+    [COSMOS] Successfully created 1 tasks in atomic batch for listId=list-personal-1, userId=test-user-a-uuid
+
+      at createTasksBatch (shared/cosmos.ts:205:11)
+
+  console.log
+    [API] Successfully created 1 tasks with 0 subtasks (1 total pomodoros)
+
+      at server.ts:973:11
+
+  console.log
+    [AUTH] JWT Bearer token validated for userId=test-user-a-uuid, scopes=tasks:write,lists:read
+
+      at verifyBearerToken (shared/auth.ts:173:13)
+
+  console.log
+    [API] POST /api/ai/tasks - authMode=jwt, userId=test-user-a-uuid, requestId=fa8896d8-6163-496f-962a-dd403826ec98
+
+      at server.ts:807:11
+
+  console.log
+    [API] Resolving list by name: Personal
+
+      at server.ts:862:13
+
+  console.log
+    [API] Found existing list: list-personal-1
+
+      at server.ts:876:15
+
+  console.log
+    [API] Creating 1 tasks in atomic batch for listId=list-personal-1
+
+      at server.ts:918:11
+
+  console.log
+    [COSMOS] Successfully created 1 tasks in atomic batch for listId=list-personal-1, userId=test-user-a-uuid
+
+      at createTasksBatch (shared/cosmos.ts:205:11)
+
+  console.log
+    [API] Successfully created 1 tasks with 0 subtasks (1 total pomodoros)
+
+      at server.ts:973:11
+
+FAIL api-tests tests/api.ai-tasks.test.ts (10.072 s)
+  Authentication & Authorization
+    Bearer JWT Token Auth
+      ÔêÜ AUTH-001: Valid Bearer token ÔåÆ 201 + taskCreated (105 ms)
+      ÔêÜ AUTH-002: Invalid Bearer token ÔåÆ 401 + UNAUTHORIZED (53 ms)
+      ÔêÜ AUTH-003: Expired Bearer token ÔåÆ 401 (40 ms)
+      ÔêÜ AUTH-004: Missing Bearer token (no auth header) ÔåÆ 401 (17 ms)
+      ÔêÜ AUTH-005: Bearer + Easy Auth both present (Bearer priority) ÔåÆ uses Bearer (29 ms)
+    Easy Auth Fallback
+      ÔêÜ AUTH-006: Valid Easy Auth header ÔåÆ 201 + success (37 ms)
+      ÔêÜ AUTH-007: Invalid Easy Auth header ÔåÆ 401 (26 ms)
+      ÔêÜ AUTH-008: No userId in Easy Auth ÔåÆ 401 (24 ms)
+      ÔêÜ AUTH-009: Correlation ID in response ÔåÆ 200 + correlationId (45 ms)
+      ├ù AUTH-010: X-Correlation-ID header ÔåÆ used in response (27 ms)
+  POST /api/ai/tasks - Happy Paths
+    ├ù HAPPY-001: Single task ÔåÆ 201 + taskId (22 ms)
+    ├ù HAPPY-002: Task with 5 subtasks ÔåÆ 201 + taskIds (13 ms)
+    ├ù HAPPY-003: Batch of 50 tasks ÔåÆ 201 + all taskIds (13 ms)
+    ÔêÜ HAPPY-004: Auto-create list ÔåÆ 201 + list created (13 ms)
+    ÔêÜ HAPPY-005: Use existing list ÔåÆ 201 + listId returned (15 ms)
+    ├ù HAPPY-006: Default iterations=1 when not specified (13 ms)
+    ÔêÜ HAPPY-007: Response includes correlationId (16 ms)
+    ├ù HAPPY-008: High priority flag preserved (14 ms)
+  POST /api/ai/tasks - Validation
+    ÔêÜ VALIDATION-001: Empty batch ÔåÆ 400 + INVALID_REQUEST (21 ms)
+    ├ù VALIDATION-002: 51 tasks ÔåÆ 400 + BATCH_SIZE_EXCEEDED (24 ms)
+    ├ù VALIDATION-003: 50 tasks ÔåÆ 201 (boundary) (10 ms)
+    ÔêÜ VALIDATION-004: Fractional iterations ÔåÆ 400 (14 ms)
+    ÔêÜ VALIDATION-005: iterations = 0 ÔåÆ 400 (14 ms)
+    ÔêÜ VALIDATION-006: iterations = 101 ÔåÆ 400 (21 ms)
+    ├ù VALIDATION-007: iterations = 100 ÔåÆ 201 (boundary) (15 ms)
+    ÔêÜ VALIDATION-008: 21 subtasks ÔåÆ 400 (24 ms)
+    ÔêÜ VALIDATION-009: Empty subtask name ÔåÆ 400 (26 ms)
+    ÔêÜ VALIDATION-010: 20 subtasks ÔåÆ 201 (boundary) (16 ms)
+    ÔêÜ VALIDATION-011: Empty task name ÔåÆ 400 (30 ms)
+    ├ù VALIDATION-012: Task name > 255 chars ÔåÆ 400 (27 ms)
+    ÔêÜ VALIDATION-013: Task name = 255 chars ÔåÆ 201 (20 ms)
+    ÔêÜ VALIDATION-014: Task name = 1 char ÔåÆ 201 (24 ms)
+    ÔêÜ VALIDATION-015: Missing listId and listName ÔåÆ 400 (26 ms)
+    ├ù VALIDATION-016: List not found, allowListCreation=false ÔåÆ 404 (27 ms)
+  Atomicity & Transactions
+    ÔêÜ ATOMICITY-001: Batch of 10 ÔåÆ all created (27 ms)
+    ├ù ATOMICITY-002: Partial batch fails ÔåÆ 500 + all-or-nothing (34 ms)
+    ÔêÜ ATOMICITY-003: Cosmos failure ÔåÆ 500 + transaction rolled back (29 ms)
+    ÔêÜ ATOMICITY-004: No partial writes on failure (21 ms)
+    ÔêÜ ATOMICITY-005: CorrelationID included in error (40 ms)
+    ├ù ATOMICITY-006: List creation is atomic with tasks (38 ms)
+    ÔêÜ ATOMICITY-007: Tasks use correct userId partition (27 ms)
+    ├ù ATOMICITY-008: Subtasks included in atomic batch (34 ms)
+  Error Contracts & Status Codes
+    ÔêÜ ERROR-001: Invalid JSON body ÔåÆ 400 + INVALID_REQUEST (27 ms)
+    ÔêÜ ERROR-002: Missing Authorization ÔåÆ 401 + UNAUTHORIZED (9 ms)
+    ÔêÜ ERROR-003: Invalid Bearer token ÔåÆ 401 + UNAUTHORIZED (16 ms)
+    ├ù ERROR-004: Batch exceeds limit ÔåÆ 400 + BATCH_SIZE_EXCEEDED (46 ms)
+    ├ù ERROR-005: List not found ÔåÆ 404 + LIST_NOT_FOUND (31 ms)
+    ÔêÜ ERROR-006: No stack traces in error response (16 ms)
+    ÔêÜ ERROR-007: User-friendly error messages (38 ms)
+    ├ù ERROR-008: CorrelationID in all error responses (14 ms)
+    ├ù ERROR-009: Validation errors include field info (22 ms)
+    ├ù ERROR-010: Proper HTTP status code selection (107 ms)
+  Multi-User Isolation
+    ÔêÜ MULTI-001: Tasks scoped by userId (33 ms)
+    ÔêÜ MULTI-002: Lists only visible to owner (31 ms)
+    ├ù MULTI-003: Bob cannot access Alice's list (25 ms)
+    ├ù MULTI-004: Each user's tasks isolated (53 ms)
+  Edge Cases & Integration
+    ÔêÜ EDGE-001: Unicode in task names (23 ms)
+    ÔêÜ EDGE-002: Very long list name (100 chars) (29 ms)
+    ÔêÜ EDGE-003: Whitespace-only task name ÔåÆ 400 (35 ms)
+    ÔêÜ EDGE-004: Case sensitivity in userId (30 ms)
+    ÔêÜ EDGE-005: Duplicate task names allowed (27 ms)
+    ÔêÜ EDGE-006: Very large iterations + subtasks (32 ms)
+    ÔêÜ EDGE-007: GET /api/ai/lists/search with query (52 ms)
+    ÔêÜ EDGE-008: Null values in optional fields ÔåÆ treated as missing (28 ms)
+    ÔêÜ EDGE-009: isHighPriority = null ÔåÆ false (default) (26 ms)
+    ÔêÜ EDGE-010: Response format consistency (38 ms)
+
+  ÔùÅ Authentication & Authorization ÔÇ║ Easy Auth Fallback ÔÇ║ AUTH-010: X-Correlation-ID header ÔåÆ used in response
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "custom-correlation-123"
+    Received: "85896240-33a8-4827-9c0e-2dde7a2600ca"
+
+      344 |
+      345 |       expect(response.status).toBe(201);
+    > 346 |       expect(response.body.correlationId).toBe(customCorrId);
+          |                                           ^
+      347 |     });
+      348 |   });
+      349 | });
+
+      at Object.<anonymous> (tests/api.ai-tasks.test.ts:346:43)
+
+  ÔùÅ POST /api/ai/tasks - Happy Paths ÔÇ║ HAPPY-001: Single task ÔåÆ 201 + taskId
+
+    expect(received).toMatch(expected)
+
+    Matcher error: received value must be a string
+
+    Received has type:  object
+    Received has value: {"completed": false, "createdAt": 1782393688260, "id": "4y0i7vavq", "isHighPriority": false, "iterations": 1, "name": "Buy milk", "subtasks": []}
+
+      364 |     expect(response.status).toBe(201);
+      365 |     expect(response.body.tasksCreated).toHaveLength(1);
+    > 366 |     expect(response.body.tasksCreated[0]).toMatch(/^[a-f0-9-]{36}$/);
+          |                                           ^
+      367 |     expect(response.body.taskCount).toBe(1);
+      368 |   });
+      369 |
+
+      at Object.<anonymous> (tests/api.ai-tasks.test.ts:366:43)
+
+  ÔùÅ POST /api/ai/tasks - Happy Paths ÔÇ║ HAPPY-002: Task with 5 subtasks ÔåÆ 201 + taskIds
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 5
+    Received: undefined
+
+      376 |     expect(response.status).toBe(201);
+      377 |     expect(response.body.tasksCreated).toHaveLength(1);
+    > 378 |     expect(response.body.subtaskCount).toBe(5);
+          |                                        ^
+      379 |   });
+      380 |
+      381 |   it("HAPPY-003: Batch of 50 tasks ÔåÆ 201 + all taskIds", async () => {
+
+      at Object.<anonymous> (tests/api.ai-tasks.test.ts:378:40)
+
+  ÔùÅ POST /api/ai/tasks - Happy Paths ÔÇ║ HAPPY-003: Batch of 50 tasks ÔåÆ 201 + all taskIds
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 50
+    Received: undefined
+
+      387 |     expect(response.status).toBe(201);
+      388 |     expect(response.body.tasksCreated).toHaveLength(50);
+    > 389 |     expect(response.body.taskCount).toBe(50);
+          |                                     ^
+      390 |   });
+      391 |
+      392 |   it("HAPPY-004: Auto-create list ÔåÆ 201 + list created", async () => {
+
+      at Object.<anonymous> (tests/api.ai-tasks.test.ts:389:37)
+
+  ÔùÅ POST /api/ai/tasks - Happy Paths ÔÇ║ HAPPY-006: Default iterations=1 when not specified
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 1
+    Received: undefined
+
+      424 |
+      425 |     expect(response.status).toBe(201);
+    > 426 |     expect(response.body.taskCount).toBe(1);
+          |                                     ^
+      427 |   });
+      428 |
+      429 |   it("HAPPY-007: Response includes correlationId", async () => {
+
+      at Object.<anonymous> (tests/api.ai-tasks.test.ts:426:37)
+
+  ÔùÅ POST /api/ai/tasks - Happy Paths ÔÇ║ HAPPY-008: High priority flag preserved
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 2
+    Received: undefined
+
+      451 |
+      452 |     expect(response.status).toBe(201);
+    > 453 |     expect(response.body.taskCount).toBe(2);
+          |                                     ^
+      454 |   });
+      455 | });
+      456 |
+
+      at Object.<anonymous> (tests/api.ai-tasks.test.ts:453:37)
+
+  ÔùÅ POST /api/ai/tasks - Validation ÔÇ║ VALIDATION-002: 51 tasks ÔåÆ 400 + BATCH_SIZE_EXCEEDED
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "BATCH_SIZE_EXCEEDED"
+    Received: "INVALID_REQUEST"
+
+      486 |
+      487 |     expect(response.status).toBe(400);
+    > 488 |     expect(response.body.error).toBe("BATCH_SIZE_EXCEEDED");
+          |                                 ^
+      489 |   });
+      490 |
+      491 |   it("VALIDATION-003: 50 tasks ÔåÆ 201 (boundary)", async () => {
+
+      at Object.<anonymous> (tests/api.ai-tasks.test.ts:488:33)
+
+  ÔùÅ POST /api/ai/tasks - Validation ÔÇ║ VALIDATION-003: 50 tasks ÔåÆ 201 (boundary)
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 50
+    Received: undefined
+
+      502 |
+      503 |     expect(response.status).toBe(201);
+    > 504 |     expect(response.body.taskCount).toBe(50);
+          |                                     ^
+      505 |   });
+      506 |
+      507 |   // Iterations validation
+
+      at Object.<anonymous> (tests/api.ai-tasks.test.ts:504:37)
+
+  ÔùÅ POST /api/ai/tasks - Validation ÔÇ║ VALIDATION-007: iterations = 100 ÔåÆ 201 (boundary)
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 1
+    Received: undefined
+
+      552 |
+      553 |     expect(response.status).toBe(201);
+    > 554 |     expect(response.body.taskCount).toBe(1);
+          |                                     ^
+      555 |   });
+      556 |
+      557 |   // Subtasks validation
+
+      at Object.<anonymous> (tests/api.ai-tasks.test.ts:554:37)
+
+  ÔùÅ POST /api/ai/tasks - Validation ÔÇ║ VALIDATION-012: Task name > 255 chars ÔåÆ 400
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 400
+    Received: 201
+
+      621 |       });
+      622 |
+    > 623 |     expect(response.status).toBe(400);
+          |                             ^
+      624 |   });
+      625 |
+      626 |   it("VALIDATION-013: Task name = 255 chars ÔåÆ 201", async () => {
+
+      at Object.<anonymous> (tests/api.ai-tasks.test.ts:623:29)
+
+  ÔùÅ POST /api/ai/tasks - Validation ÔÇ║ VALIDATION-016: List not found, allowListCreation=false ÔåÆ 404
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 404
+    Received: 400
+
+      670 |       });
+      671 |
+    > 672 |     expect(response.status).toBe(404);
+          |                             ^
+      673 |     expect(response.body.error).toBe("LIST_NOT_FOUND");
+      674 |   });
+      675 | });
+
+      at Object.<anonymous> (tests/api.ai-tasks.test.ts:672:29)
+
+  ÔùÅ Atomicity & Transactions ÔÇ║ ATOMICITY-002: Partial batch fails ÔåÆ 500 + all-or-nothing
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 5
+    Received: undefined
+
+      713 |
+      714 |     expect(response.status).toBe(201);
+    > 715 |     expect(response.body.taskCount).toBe(5);
+          |                                     ^
+      716 |   });
+      717 |
+      718 |   it("ATOMICITY-003: Cosmos failure ÔåÆ 500 + transaction rolled back", async () => {
+
+      at Object.<anonymous> (tests/api.ai-tasks.test.ts:715:37)
+
+  ÔùÅ Atomicity & Transactions ÔÇ║ ATOMICITY-006: List creation is atomic with tasks
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      753 |
+      754 |     expect(response.status).toBe(201);
+    > 755 |     expect(response.body.listCreated).toBe(true);
+          |                                       ^
+      756 |     expect(response.body.listId).toBeTruthy();
+      757 |   });
+      758 |
+
+      at Object.<anonymous> (tests/api.ai-tasks.test.ts:755:39)
+
+  ÔùÅ Atomicity & Transactions ÔÇ║ ATOMICITY-008: Subtasks included in atomic batch
+
+    expect(received).toBeGreaterThan(expected)
+
+    Matcher error: received value must be a number or bigint
+
+    Received has value: undefined
+
+      773 |
+      774 |     expect(response.status).toBe(201);
+    > 775 |     expect(response.body.subtaskCount).toBeGreaterThan(0);
+          |                                        ^
+      776 |   });
+      777 | });
+      778 |
+
+      at Object.<anonymous> (tests/api.ai-tasks.test.ts:775:40)
+
+  ÔùÅ Error Contracts & Status Codes ÔÇ║ ERROR-004: Batch exceeds limit ÔåÆ 400 + BATCH_SIZE_EXCEEDED
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "BATCH_SIZE_EXCEEDED"
+    Received: "INVALID_REQUEST"
+
+      825 |
+      826 |     expect(response.status).toBe(400);
+    > 827 |     expect(response.body.error).toBe("BATCH_SIZE_EXCEEDED");
+          |                                 ^
+      828 |   });
+      829 |
+      830 |   it("ERROR-005: List not found ÔåÆ 404 + LIST_NOT_FOUND", async () => {
+
+      at Object.<anonymous> (tests/api.ai-tasks.test.ts:827:33)
+
+  ÔùÅ Error Contracts & Status Codes ÔÇ║ ERROR-005: List not found ÔåÆ 404 + LIST_NOT_FOUND
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 404
+    Received: 400
+
+      838 |       });
+      839 |
+    > 840 |     expect(response.status).toBe(404);
+          |                             ^
+      841 |     expect(response.body.error).toBe("LIST_NOT_FOUND");
+      842 |   });
+      843 |
+
+      at Object.<anonymous> (tests/api.ai-tasks.test.ts:840:29)
+
+  ÔùÅ Error Contracts & Status Codes ÔÇ║ ERROR-008: CorrelationID in all error responses
+
+    expect(received).toBeTruthy()
+
+    Received: undefined
+
+      869 |
+      870 |     expect(response.status).toBe(401);
+    > 871 |     expect(response.body.correlationId).toBeTruthy();
+          |                                         ^
+      872 |   });
+      873 |
+      874 |   it("ERROR-009: Validation errors include field info", async () => {
+
+      at Object.<anonymous> (tests/api.ai-tasks.test.ts:871:41)
+
+  ÔùÅ Error Contracts & Status Codes ÔÇ║ ERROR-009: Validation errors include field info
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 400
+    Received: 201
+
+      881 |       });
+      882 |
+    > 883 |     expect(response.status).toBe(400);
+          |                             ^
+      884 |   });
+      885 |
+      886 |   it("ERROR-010: Proper HTTP status code selection", async () => {
+
+      at Object.<anonymous> (tests/api.ai-tasks.test.ts:883:29)
+
+  ÔùÅ Error Contracts & Status Codes ÔÇ║ ERROR-010: Proper HTTP status code selection
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 404
+    Received: 400
+
+      914 |         allowListCreation: false,
+      915 |       });
+    > 916 |     expect(response.status).toBe(404);
+          |                             ^
+      917 |   });
+      918 | });
+      919 |
+
+      at Object.<anonymous> (tests/api.ai-tasks.test.ts:916:29)
+
+  ÔùÅ Multi-User Isolation ÔÇ║ MULTI-003: Bob cannot access Alice's list
+
+    expect(received).toContain(expected) // indexOf
+
+    Expected value: 400
+    Received array: [201, 404]
+
+      958 |
+      959 |     // Should either fail or create in Bob's space
+    > 960 |     expect([201, 404]).toContain(response.status);
+          |                        ^
+      961 |   });
+      962 |
+      963 |   it("MULTI-004: Each user's tasks isolated", async () => {
+
+      at Object.<anonymous> (tests/api.ai-tasks.test.ts:960:24)
+
+  ÔùÅ Multi-User Isolation ÔÇ║ MULTI-004: Each user's tasks isolated
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 201
+    Received: 400
+
+      978 |
+      979 |     expect(resp1.status).toBe(201);
+    > 980 |     expect(resp2.status).toBe(201);
+          |                          ^
+      981 |     // Task IDs should be different
+      982 |     expect(resp1.body.tasksCreated[0].id).not.toEqual(resp2.body.tasksCreated[0].id);
+      983 |   });
+
+      at Object.<anonymous> (tests/api.ai-tasks.test.ts:980:26)
+
+Test Suites: 1 failed, 1 total
+Tests:       21 failed, 45 passed, 66 total
+Snapshots:   0 total
+Time:        10.552 s, estimated 13 s
+Ran all test suites.

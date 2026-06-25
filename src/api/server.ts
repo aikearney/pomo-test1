@@ -1167,7 +1167,13 @@ app.get("*", (_req, res) => {
   });
 });
 
-app.listen(port, () => {
-  console.log(`Server listening on http://localhost:${port}`);
-  console.log(`Serving frontend assets from: ${frontendDistPath}`);
-});
+// Export the app for testing
+export default app;
+
+// Only start listening if not in test environment
+if (process.env.NODE_ENV !== "test") {
+  app.listen(port, () => {
+    console.log(`Server listening on http://localhost:${port}`);
+    console.log(`Serving frontend assets from: ${frontendDistPath}`);
+  });
+}
