@@ -579,6 +579,420 @@ app.delete("/api/tasks/:id", asyncHandler(async (req, res) => {
   res.status(204).send();
 }));
 
+/**
+ * GET /api/ai/lists/search
+ * Search for task lists by name or retrieve all lists.
+ * Query Parameters:
+ *   - q: Search query (optional, exact match case-insensitive)
+ *   - fuzzy: Enable fuzzy matching (optional, default false)
+ *   - limit: Max results (optional, default 10, max 100)
+ * Response: { lists, query, matchType, resultCount }
+ */
+app.get("/api/ai/lists/search", asyncHandler(async (req, res) => {
+  const userId = await getAuthenticatedUserId(req);
+  if (!userId) {
+    res.status(401).json({ error: "UNAUTHORIZED", message: "Authentication required" });
+    return;
+  }
+
+  const searchQuery = typeof req.query.q === "string" ? req.query.q.trim() : undefined;
+  const fuzzyMode = req.query.fuzzy === "true";
+  const limitParam = Number(req.query.limit ?? 10);
+
+  // Validate limit
+  if (!Number.isFinite(limitParam) || limitParam < 1 || limitParam > 100) {
+    res.status(400).json({
+      error: "INVALID_QUERY",
+      message: "limit must be between 1 and 100",
+      received: req.query.limit,
+    });
+    return;
+  }
+
+  const lists = getListsContainer();
+  const query = `SELECT * FROM c WHERE ${USER_ID_FILTER} ORDER BY c.order ASC`;
+  const { resources: allLists } = await lists.items
+    .query({
+      query,
+      parameters: [{ name: "@userId", value: userId }],
+    })
+    .fetchAll();
+
+  let filteredLists = allLists;
+  let matchType = "all";
+
+  // Apply search filter if query provided
+  if (searchQuery) {
+    if (fuzzyMode) {
+      // Fuzzy matching: substring match (case-insensitive)
+      const queryLower = searchQuery.toLowerCase();
+      filteredLists = allLists.filter((list: any) =>
+        list.name?.toLowerCase().includes(queryLower)
+      );
+      matchType = "fuzzy";
+    } else {
+      // Exact match (case-insensitive)
+      const queryLower = searchQuery.toLowerCase();
+      filteredLists = allLists.filter((list: any) =>
+        list.name?.toLowerCase() === queryLower
+      );
+      matchType = "exact";
+    }
+  }
+
+  // Limit results
+  const results = filteredLists.slice(0, limitParam);
+
+  // Get task counts for each list
+  const tasks = getTasksContainer();
+  const listsWithCounts = await Promise.all(
+    results.map(async (list: any) => {
+      const taskQuery = `SELECT VALUE COUNT(1) FROM c WHERE (c.userId = @userId OR c.userid = @userId) AND c.listId = @listId`;
+      const { resources: countResult } = await tasks.items
+        .query({
+          query: taskQuery,
+          parameters: [
+            { name: "@userId", value: userId },
+            { name: "@listId", value: list.id },
+          ],
+        })
+        .fetchAll();
+
+      const taskCount = countResult?.[0] ?? 0;
+
+      return {
+        id: list.id,
+        name: list.name,
+        createdAt: list.createdAt,
+        color: list.color || null,
+        order: list.order,
+        pinned: list.pinned,
+        taskCount,
+      };
+    })
+  );
+
+  res.status(200).json({
+    lists: listsWithCounts,
+    query: searchQuery || null,
+    matchType,
+    resultCount: listsWithCounts.length,
+  });
+}));
+
+/**
+ * POST /api/ai/tasks
+ * Create one or more tasks with optional list auto-creation.
+ * Request Body:
+ *   {
+ *     "listId": "uuid" | null,
+ *     "listName": "Shopping",
+ *     "createListIfMissing": boolean,
+ *     "tasks": [
+ *       {
+ *         "name": "Task title",
+ *         "iterations": 1,
+ *         "isHighPriority": false,
+ *         "subtasks": [...]
+ *       }
+ *     ]
+ *   }
+ * Response: 201 Created with { listId, listName, listCreated, tasksCreated, summary }
+ * Errors: 400 (INVALID_REQUEST, BATCH_SIZE_EXCEEDED, LIST_NOT_FOUND, etc.)
+ */
+app.post("/api/ai/tasks", asyncHandler(async (req, res) => {
+  const userId = await getAuthenticatedUserId(req);
+  if (!userId) {
+    res.status(401).json({ error: "UNAUTHORIZED", message: "Authentication required" });
+    return;
+  }
+
+  const body = req.body ?? {};
+  const requestId = crypto.randomUUID?.() || uuid();
+
+  // --- VALIDATION: Parse and validate request ---
+
+  // Validate tasks array exists and is an array
+  if (!Array.isArray(body.tasks)) {
+    res.status(400).json({
+      error: "INVALID_REQUEST",
+      message: "tasks must be an array",
+      field: "tasks",
+      correlationId: requestId,
+    });
+    return;
+  }
+
+  // Validate batch size (1-50 tasks)
+  if (body.tasks.length < 1 || body.tasks.length > 50) {
+    res.status(400).json({
+      error: "BATCH_SIZE_EXCEEDED",
+      message: `Maximum 50 tasks per request. Received ${body.tasks.length}.`,
+      correlationId: requestId,
+    });
+    return;
+  }
+
+  // Validate each task in the batch (all-or-nothing validation)
+  for (let i = 0; i < body.tasks.length; i++) {
+    const task = body.tasks[i];
+
+    // Validate task name
+    if (typeof task.name !== "string" || !task.name.trim()) {
+      res.status(400).json({
+        error: "INVALID_REQUEST",
+        message: "tasks[" + i + "].name is required and must be non-empty",
+        field: `tasks[${i}].name`,
+        correlationId: requestId,
+      });
+      return;
+    }
+
+    if (task.name.length > 500) {
+      res.status(400).json({
+        error: "INVALID_REQUEST",
+        message: "tasks[" + i + "].name must not exceed 500 characters",
+        field: `tasks[${i}].name`,
+        correlationId: requestId,
+      });
+      return;
+    }
+
+    // Validate iterations if provided
+    if (task.hasOwnProperty("iterations")) {
+      const iterations = Number(task.iterations);
+      if (!Number.isFinite(iterations) || iterations < 1 || iterations > 100) {
+        res.status(400).json({
+          error: "INVALID_ITERATIONS",
+          message: "iterations must be a positive integer between 1 and 100",
+          field: `tasks[${i}].iterations`,
+          received: task.iterations,
+          correlationId: requestId,
+        });
+        return;
+      }
+    }
+
+    // Validate subtasks if provided
+    if (task.hasOwnProperty("subtasks")) {
+      if (!Array.isArray(task.subtasks)) {
+        res.status(400).json({
+          error: "INVALID_REQUEST",
+          message: "tasks[" + i + "].subtasks must be an array",
+          field: `tasks[${i}].subtasks`,
+          correlationId: requestId,
+        });
+        return;
+      }
+
+      if (task.subtasks.length > 20) {
+        res.status(400).json({
+          error: "INVALID_REQUEST",
+          message: "tasks[" + i + "].subtasks must not exceed 20 items",
+          field: `tasks[${i}].subtasks`,
+          correlationId: requestId,
+        });
+        return;
+      }
+
+      for (let j = 0; j < task.subtasks.length; j++) {
+        const subtask = task.subtasks[j];
+
+        if (typeof subtask.name !== "string" || !subtask.name.trim()) {
+          res.status(400).json({
+            error: "INVALID_REQUEST",
+            message: "tasks[" + i + "].subtasks[" + j + "].name is required and must be non-empty",
+            field: `tasks[${i}].subtasks[${j}].name`,
+            correlationId: requestId,
+          });
+          return;
+        }
+
+        if (subtask.name.length > 500) {
+          res.status(400).json({
+            error: "INVALID_REQUEST",
+            message: "tasks[" + i + "].subtasks[" + j + "].name must not exceed 500 characters",
+            field: `tasks[${i}].subtasks[${j}].name`,
+            correlationId: requestId,
+          });
+          return;
+        }
+
+        // Validate subtask iterations if provided
+        if (subtask.hasOwnProperty("iterations")) {
+          const subtaskIterations = Number(subtask.iterations);
+          if (!Number.isFinite(subtaskIterations) || subtaskIterations < 1 || subtaskIterations > 100) {
+            res.status(400).json({
+              error: "INVALID_ITERATIONS",
+              message: "subtask iterations must be a positive integer between 1 and 100",
+              field: `tasks[${i}].subtasks[${j}].iterations`,
+              received: subtask.iterations,
+              correlationId: requestId,
+            });
+            return;
+          }
+        }
+      }
+    }
+  }
+
+  // --- RESOLVE LIST ---
+
+  const lists = getListsContainer();
+  const tasks = getTasksContainer();
+  let resolvedListId: string;
+  let resolvedListName: string;
+  let listCreated = false;
+
+  // Determine list resolution strategy
+  const providedListId = body.listId;
+  const providedListName = typeof body.listName === "string" ? body.listName.trim() : undefined;
+  const createListIfMissing = body.createListIfMissing === true;
+
+  if (providedListId) {
+    // Validate that list exists
+    try {
+      const { resource: list } = await lists.item(providedListId, userId as string).read();
+      if (!list) {
+        res.status(400).json({
+          error: "LIST_NOT_FOUND",
+          message: `List with ID '${providedListId}' not found`,
+          correlationId: requestId,
+        });
+        return;
+      }
+      resolvedListId = list.id;
+      resolvedListName = list.name;
+    } catch (err: any) {
+      res.status(400).json({
+        error: "LIST_NOT_FOUND",
+        message: `List with ID '${providedListId}' not found`,
+        correlationId: requestId,
+      });
+      return;
+    }
+  } else if (providedListName) {
+    // Search for list by name (exact match, case-insensitive)
+    const queryName = providedListName.toLowerCase();
+    const listQuery = `SELECT * FROM c WHERE (c.userId = @userId OR c.userid = @userId) AND LOWER(c.name) = @name`;
+    const { resources: matchingLists } = await lists.items
+      .query({
+        query: listQuery,
+        parameters: [
+          { name: "@userId", value: userId },
+          { name: "@name", value: queryName },
+        ],
+      })
+      .fetchAll();
+
+    if (matchingLists.length > 0) {
+      // List found
+      resolvedListId = matchingLists[0].id;
+      resolvedListName = matchingLists[0].name;
+    } else if (createListIfMissing) {
+      // Auto-create list
+      const newList = {
+        id: uuid(),
+        userId: userId as string,
+        userid: userId as string,
+        name: providedListName,
+        createdAt: Date.now(),
+        color: null,
+        order: Date.now(),
+        pinned: false,
+      };
+      await lists.items.create(newList);
+      resolvedListId = newList.id;
+      resolvedListName = newList.name;
+      listCreated = true;
+    } else {
+      // List not found and auto-create disabled
+      res.status(400).json({
+        error: "LIST_NOT_FOUND_NO_AUTO_CREATE",
+        message: `List '${providedListName}' not found. Set createListIfMissing=true to auto-create.`,
+        listName: providedListName,
+        correlationId: requestId,
+      });
+      return;
+    }
+  } else {
+    res.status(400).json({
+      error: "INVALID_REQUEST",
+      message: "Either listId or listName must be provided",
+      field: "listId or listName",
+      correlationId: requestId,
+    });
+    return;
+  }
+
+  // --- CREATE TASKS ---
+
+  const createdTasks = [];
+  let totalSubtasks = 0;
+  let totalPomodoros = 0;
+
+  for (const taskInput of body.tasks) {
+    const taskIterations = Number.isFinite(Number(taskInput.iterations)) && Number(taskInput.iterations) > 0
+      ? Math.round(Number(taskInput.iterations))
+      : 1;
+
+    // Process subtasks
+    const processedSubtasks = Array.isArray(taskInput.subtasks)
+      ? taskInput.subtasks.map((subtask: any) => ({
+          id: uuid(),
+          name: subtask.name,
+          iterations: Number.isFinite(Number(subtask.iterations)) && Number(subtask.iterations) > 0
+            ? Math.round(Number(subtask.iterations))
+            : 1,
+          completed: false,
+        }))
+      : [];
+
+    const newTask = {
+      id: uuid(),
+      userId: userId as string,
+      userid: userId as string,
+      listId: resolvedListId,
+      name: taskInput.name,
+      iterations: taskIterations,
+      subtasks: processedSubtasks,
+      completed: false,
+      collapsed: false,
+      isHighPriority: Boolean(taskInput.isHighPriority),
+      createdAt: Date.now(),
+    };
+
+    await tasks.items.create(newTask);
+
+    // Build response task object
+    const responseTask = {
+      id: newTask.id,
+      name: newTask.name,
+      iterations: newTask.iterations,
+      isHighPriority: newTask.isHighPriority,
+      subtasks: processedSubtasks,
+      completed: false,
+      createdAt: newTask.createdAt,
+    };
+
+    createdTasks.push(responseTask);
+    totalSubtasks += processedSubtasks.length;
+    totalPomodoros += taskIterations + processedSubtasks.reduce((sum: number, st: any) => sum + st.iterations, 0);
+  }
+
+  res.status(201).json({
+    listId: resolvedListId,
+    listName: resolvedListName,
+    listCreated,
+    tasksCreated: createdTasks,
+    summary: {
+      tasksCount: createdTasks.length,
+      subtasksCount: totalSubtasks,
+      totalPomodorosCreated: totalPomodoros,
+    },
+  });
+}));
+
 app.use("/api", (_req, res) => {
   res.status(404).send("Not found");
 });
