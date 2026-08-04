@@ -387,7 +387,7 @@ function App() {
   const [hasLoadedServerPreferences, setHasLoadedServerPreferences] = useState(false)
   const lastBackupFileHandleRef = useRef<any | null>(null)
 
-  const AUTH_PROVIDER = (import.meta.env.VITE_AUTH_PROVIDER || 'aad').trim()
+  const AUTH_PROVIDER = (import.meta.env.VITE_AUTH_PROVIDER || 'google').trim()
   const LOGIN_PROVIDERS = ['google', 'facebook'] as const
 
   const LOCAL_LISTS_KEY = 'pomodoro-local-lists'
