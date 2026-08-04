@@ -204,6 +204,7 @@ type AuthCache = {
 type UserPreferences = {
   backgroundImage: string | null
   backgroundOpacity: number
+  highPriorityTaskOrder?: string[]
 }
 
 function createDefaultTimerState(): TimerState {
@@ -1737,6 +1738,14 @@ function App() {
           }
         }
 
+        if (Array.isArray(prefs.highPriorityTaskOrder)) {
+          setHighPriorityTaskOrder(
+            prefs.highPriorityTaskOrder.filter(
+              (taskKey) => typeof taskKey === 'string'
+            )
+          )
+        }
+
         setHasLoadedServerPreferences(true)
       } catch (err) {
         if (!cancelled) {
@@ -1772,6 +1781,7 @@ function App() {
           body: JSON.stringify({
             backgroundImage,
             backgroundOpacity,
+            highPriorityTaskOrder,
           }),
         })
       } catch (err) {
@@ -1793,6 +1803,7 @@ function App() {
     hasLoadedServerPreferences,
     backgroundImage,
     backgroundOpacity,
+    highPriorityTaskOrder,
     authUserId,
   ])
 

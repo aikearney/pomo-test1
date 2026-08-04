@@ -242,6 +242,17 @@ function normalizeBackgroundOpacity(value: unknown, fallback = 0.8): number {
   return Math.min(1, Math.max(0, parsed));
 }
 
+function normalizeHighPriorityTaskOrder(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .filter((entry): entry is string => typeof entry === "string")
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0)
+    .map((entry) => entry.slice(0, 512))
+    .slice(0, 500);
+}
+
 // Safe auth endpoint - proxies /.auth/me but strips sensitive tokens
 app.get("/api/auth/me", asyncHandler(async (req, res) => {
   try {
@@ -319,6 +330,7 @@ app.get("/api/preferences", asyncHandler(async (req, res) => {
     res.status(200).json({
       backgroundImage: null,
       backgroundOpacity: 0.8,
+      highPriorityTaskOrder: [],
     });
     return;
   }
@@ -326,6 +338,7 @@ app.get("/api/preferences", asyncHandler(async (req, res) => {
   res.status(200).json({
     backgroundImage: typeof resource.backgroundImage === "string" ? resource.backgroundImage : null,
     backgroundOpacity: normalizeBackgroundOpacity(resource.backgroundOpacity),
+    highPriorityTaskOrder: normalizeHighPriorityTaskOrder(resource.highPriorityTaskOrder),
   });
 }));
 
@@ -363,6 +376,25 @@ app.patch("/api/preferences", asyncHandler(async (req, res) => {
     updates.backgroundOpacity = Math.min(1, Math.max(0, parsed));
   }
 
+  if (Object.prototype.hasOwnProperty.call(body, "highPriorityTaskOrder")) {
+    if (!Array.isArray(body.highPriorityTaskOrder)) {
+      res.status(400).send("highPriorityTaskOrder must be an array of strings");
+      return;
+    }
+
+    if (body.highPriorityTaskOrder.length > 500) {
+      res.status(400).send("highPriorityTaskOrder exceeds maximum length of 500");
+      return;
+    }
+
+    if (body.highPriorityTaskOrder.some((entry: unknown) => typeof entry !== "string")) {
+      res.status(400).send("highPriorityTaskOrder must be an array of strings");
+      return;
+    }
+
+    updates.highPriorityTaskOrder = normalizeHighPriorityTaskOrder(body.highPriorityTaskOrder);
+  }
+
   const container = getUserPreferencesContainer();
   const { resource: existing } = await container.item(USER_PREFERENCES_DOC_ID, userId).read();
   const now = Date.now();
@@ -373,6 +405,7 @@ app.patch("/api/preferences", asyncHandler(async (req, res) => {
     backgroundImage: null,
     backgroundOpacity: 0.8,
     ...(existing ?? {}),
+    highPriorityTaskOrder: normalizeHighPriorityTaskOrder(existing?.highPriorityTaskOrder),
     ...updates,
     userId,
     userid: userId,
@@ -385,6 +418,7 @@ app.patch("/api/preferences", asyncHandler(async (req, res) => {
     res.status(200).json({
       backgroundImage: typeof saved?.backgroundImage === "string" ? saved.backgroundImage : null,
       backgroundOpacity: normalizeBackgroundOpacity(saved?.backgroundOpacity),
+      highPriorityTaskOrder: normalizeHighPriorityTaskOrder(saved?.highPriorityTaskOrder),
     });
     return;
   }
@@ -393,6 +427,7 @@ app.patch("/api/preferences", asyncHandler(async (req, res) => {
   res.status(200).json({
     backgroundImage: typeof created?.backgroundImage === "string" ? created.backgroundImage : null,
     backgroundOpacity: normalizeBackgroundOpacity(created?.backgroundOpacity),
+    highPriorityTaskOrder: normalizeHighPriorityTaskOrder(created?.highPriorityTaskOrder),
   });
 }));
 
