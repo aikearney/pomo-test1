@@ -95,24 +95,6 @@ const PRESET_BACKGROUNDS = [
     url: 'linear-gradient(135deg, #ff6a00 0%, #ee0979 100%)'
   },
   {
-    id: 'pattern-1',
-    name: 'Dots',
-    url: 'radial-gradient(circle, oklch(0.45 0.15 260) 1px, transparent 1px)',
-    style: { backgroundSize: '20px 20px' }
-  },
-  {
-    id: 'pattern-2',
-    name: 'Grid',
-    url: 'linear-gradient(oklch(0.45 0.15 260 / 0.1) 1px, transparent 1px), linear-gradient(90deg, oklch(0.45 0.15 260 / 0.1) 1px, transparent 1px)',
-    style: { backgroundSize: '30px 30px' }
-  },
-  {
-    id: 'pattern-3',
-    name: 'Diagonal',
-    url: 'repeating-linear-gradient(45deg, transparent, transparent 10px, oklch(0.45 0.15 260 / 0.05) 10px, oklch(0.45 0.15 260 / 0.05) 20px)',
-    style: {}
-  },
-  {
     id: 'mesh-1',
     name: 'Purple Mesh',
     url: 'radial-gradient(at 0% 0%, oklch(0.45 0.15 260) 0px, transparent 50%), radial-gradient(at 100% 0%, oklch(0.55 0.20 300) 0px, transparent 50%), radial-gradient(at 100% 100%, oklch(0.50 0.18 280) 0px, transparent 50%), radial-gradient(at 0% 100%, oklch(0.60 0.15 250) 0px, transparent 50%)',
@@ -131,6 +113,8 @@ const PRESET_BACKGROUNDS = [
     style: { backgroundColor: 'oklch(0.98 0.002 240)' }
   }
 ]
+
+const HIGH_PRIORITY_LIST_ID = 'high-priority'
 
 export function TaskListSelector({
   taskLists,
@@ -161,6 +145,7 @@ export function TaskListSelector({
   const [editingListId, setEditingListId] = useState<string | null>(null)
   const [editingName, setEditingName] = useState('')
   const [deleteConfirmListId, setDeleteConfirmListId] = useState<string | null>(null)
+  const [duplicateConfirmListId, setDuplicateConfirmListId] = useState<string | null>(null)
   const [pendingImportFile, setPendingImportFile] = useState<File | null>(null)
   const [showImportChoiceDialog, setShowImportChoiceDialog] = useState(false)
   const [showImportListDialog, setShowImportListDialog] = useState(false)
@@ -175,6 +160,10 @@ export function TaskListSelector({
   const importInputRef = useRef<HTMLInputElement>(null)
 
   const currentTaskList = taskLists.find(list => list.id === currentTaskListId)
+  const currentTaskListName =
+    currentTaskListId === HIGH_PRIORITY_LIST_ID
+      ? 'High Priority'
+      : currentTaskList?.name || 'Select List'
   const activeLists = taskLists.filter(list => !list.archived)
   const archivedLists = taskLists.filter(list => list.archived)
 
@@ -202,6 +191,13 @@ export function TaskListSelector({
     if (deleteConfirmListId) {
       onDeleteTaskList(deleteConfirmListId)
       setDeleteConfirmListId(null)
+    }
+  }
+
+  const handleDuplicate = () => {
+    if (duplicateConfirmListId) {
+      onDuplicateTaskList(duplicateConfirmListId)
+      setDuplicateConfirmListId(null)
     }
   }
 
@@ -348,11 +344,19 @@ export function TaskListSelector({
       <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
         <DropdownMenuTrigger asChild>
           <Button variant="outline" className="gap-2 max-w-[min(62vw,16rem)] justify-between">
-            <span className="font-medium truncate">{currentTaskList?.name || 'Select List'}</span>
+            <span className="font-medium truncate">{currentTaskListName}</span>
             <CaretDown size={16} weight="bold" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-64">
+          <DropdownMenuLabel className="font-bold underline">Views</DropdownMenuLabel>
+          <DropdownMenuItem
+            onClick={() => onSelectTaskList(HIGH_PRIORITY_LIST_ID)}
+            className={currentTaskListId === HIGH_PRIORITY_LIST_ID ? 'bg-accent' : ''}
+          >
+            High Priority
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
           <DropdownMenuLabel className="font-bold underline">Active Lists</DropdownMenuLabel>
           {activeLists.map(list => (
             <DropdownMenuItem
@@ -410,7 +414,7 @@ export function TaskListSelector({
                       className="h-8 w-8 p-0"
                       onClick={(e) => {
                         e.stopPropagation()
-                        onDuplicateTaskList(list.id)
+                        setDuplicateConfirmListId(list.id)
                       }}
                       title="Duplicate list"
                     >
@@ -640,23 +644,6 @@ export function TaskListSelector({
                 </DropdownMenuItem>
               ))}
               <DropdownMenuSeparator />
-              <DropdownMenuLabel>Patterns</DropdownMenuLabel>
-              {PRESET_BACKGROUNDS.filter(bg => bg.id.startsWith('pattern')).map(bg => (
-                <DropdownMenuItem
-                  key={bg.id}
-                  onClick={() => onBackgroundChange(bg.id)}
-                >
-                  <div className="flex items-center gap-2 w-full">
-                    <div 
-                      className="w-4 h-4 rounded border border-border"
-                      style={{ background: bg.url, ...bg.style }}
-                    />
-                    <span className="flex-1">{bg.name}</span>
-                    {backgroundImage === bg.id && <Check size={16} />}
-                  </div>
-                </DropdownMenuItem>
-              ))}
-              <DropdownMenuSeparator />
               <DropdownMenuLabel>Mesh Gradients</DropdownMenuLabel>
               {PRESET_BACKGROUNDS.filter(bg => bg.id.startsWith('mesh')).map(bg => (
                 <DropdownMenuItem
@@ -763,6 +750,23 @@ export function TaskListSelector({
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={duplicateConfirmListId !== null} onOpenChange={(open) => !open && setDuplicateConfirmListId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Duplicate Task List?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to duplicate "{taskLists.find(l => l.id === duplicateConfirmListId)?.name}"?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDuplicate}>
+              Duplicate
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

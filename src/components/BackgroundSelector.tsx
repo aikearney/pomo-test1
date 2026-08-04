@@ -46,24 +46,6 @@ const PRESET_BACKGROUNDS = [
     url: 'linear-gradient(135deg, #ff6a00 0%, #ee0979 100%)'
   },
   {
-    id: 'pattern-1',
-    name: 'Dots',
-    url: 'radial-gradient(circle, oklch(0.45 0.15 260) 1px, transparent 1px)',
-    style: { backgroundSize: '20px 20px' }
-  },
-  {
-    id: 'pattern-2',
-    name: 'Grid',
-    url: 'linear-gradient(oklch(0.45 0.15 260 / 0.1) 1px, transparent 1px), linear-gradient(90deg, oklch(0.45 0.15 260 / 0.1) 1px, transparent 1px)',
-    style: { backgroundSize: '30px 30px' }
-  },
-  {
-    id: 'pattern-3',
-    name: 'Diagonal',
-    url: 'repeating-linear-gradient(45deg, transparent, transparent 10px, oklch(0.45 0.15 260 / 0.05) 10px, oklch(0.45 0.15 260 / 0.05) 20px)',
-    style: {}
-  },
-  {
     id: 'mesh-1',
     name: 'Purple Mesh',
     url: 'radial-gradient(at 0% 0%, oklch(0.45 0.15 260) 0px, transparent 50%), radial-gradient(at 100% 0%, oklch(0.55 0.20 300) 0px, transparent 50%), radial-gradient(at 100% 100%, oklch(0.50 0.18 280) 0px, transparent 50%), radial-gradient(at 0% 100%, oklch(0.60 0.15 250) 0px, transparent 50%)',

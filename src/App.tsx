@@ -186,6 +186,8 @@ function parseImportedTasks(raw: string | undefined): Task[] {
 const TIMER_RUNTIME_STORAGE_KEY = 'pomodoro-timer-runtime'
 const AUTH_CACHE_STORAGE_KEY = 'pomodoro-auth-cache'
 const AUTH_CACHE_EXPIRY_MS = 30 * 24 * 60 * 60 * 1000 // 30 days
+const HIGH_PRIORITY_LIST_ID = 'high-priority'
+const HIGH_PRIORITY_TASK_ORDER_STORAGE_KEY = 'pomodoro-high-priority-task-order'
 
 type PersistedTimerRuntime = {
   timerState: TimerState
@@ -373,6 +375,22 @@ function App() {
   )
   const [tasks, setTasks] = useState<Task[]>([])
   const [tasksByListId, setTasksByListId] = useState<Record<string, Task[]>>({})
+  const [highPriorityTaskOrder, setHighPriorityTaskOrder] = useState<string[]>(() => {
+    const raw = localStorage.getItem(HIGH_PRIORITY_TASK_ORDER_STORAGE_KEY)
+    if (!raw) return []
+
+    try {
+      const parsed = JSON.parse(raw) as string[]
+      if (!Array.isArray(parsed)) return []
+      return parsed.filter((value) => typeof value === 'string')
+    } catch {
+      return []
+    }
+  })
+  const [sourceTaskSelection, setSourceTaskSelection] = useState<{
+    listId: string
+    taskId: string
+  } | null>(null)
   const [isLoadingLists, setIsLoadingLists] = useState(false)
   const [isLoadingTasks, setIsLoadingTasks] = useState(false)
   const [isAnonymousMode, setIsAnonymousMode] = useState(false)
@@ -386,6 +404,7 @@ function App() {
   const [isAuthStateResolved, setIsAuthStateResolved] = useState(false)
   const [hasLoadedServerPreferences, setHasLoadedServerPreferences] = useState(false)
   const lastBackupFileHandleRef = useRef<any | null>(null)
+  const loadedTasksListIdRef = useRef<string | null>(null)
 
   const AUTH_PROVIDER = (import.meta.env.VITE_AUTH_PROVIDER || 'google').trim()
   const LOGIN_PROVIDERS = ['google', 'facebook'] as const
@@ -399,6 +418,34 @@ function App() {
 
   const isLocalListId = (listId: string | null | undefined) =>
     !!listId && (listId === 'personal' || listId.startsWith('local-'))
+
+  const isHighPriorityView = currentTaskListId === HIGH_PRIORITY_LIST_ID
+
+  const getHighPriorityTaskKey = (task: Pick<Task, 'id' | 'listId'>) =>
+    `${task.listId || 'unknown'}::${task.id}`
+
+  const sortHighPriorityTasksByViewOrder = (inputTasks: Task[]) => {
+    const orderByKey = new Map(
+      highPriorityTaskOrder.map((taskKey, index) => [taskKey, index])
+    )
+
+    return [...inputTasks].sort((leftTask, rightTask) => {
+      const leftIndex = orderByKey.get(getHighPriorityTaskKey(leftTask))
+      const rightIndex = orderByKey.get(getHighPriorityTaskKey(rightTask))
+
+      if (leftIndex !== undefined && rightIndex !== undefined) {
+        return leftIndex - rightIndex
+      }
+
+      if (leftIndex !== undefined) return -1
+      if (rightIndex !== undefined) return 1
+
+      return (leftTask.order || 0) - (rightTask.order || 0)
+    })
+  }
+
+  const tasksBelongToList = (listId: string, candidateTasks: Task[]) =>
+    candidateTasks.every((task) => !task.listId || task.listId === listId)
 
   const getLocalTasksStorageKey = (listId: string) =>
     listId === 'personal' ? 'personalTasks' : `pomodoro-local-tasks:${listId}`
@@ -439,6 +486,18 @@ function App() {
       ...task,
       order: index,
     }))
+
+  const createUniqueId = (prefix: string) => {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return `${prefix}-${crypto.randomUUID()}`
+    }
+
+    return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`
+  }
+
+  const createLocalTaskId = () => createUniqueId('local-task')
+  const createTemporaryTaskId = () => createUniqueId('temp')
+  const createLocalListId = () => createUniqueId('local')
 
   const exportLocalBackup = (filename: string) => {
     const hasApiBackedCurrentList =
@@ -718,7 +777,7 @@ function App() {
           importedSourceList?.name ||
           'Imported List'
 
-        const newListId = `local-${Date.now()}`
+        const newListId = createLocalListId()
         const newList: TaskList = {
           id: newListId,
           name: newListName,
@@ -1293,26 +1352,72 @@ function App() {
 
   // Persist current list id locally (for UX)
   useEffect(() => {
-    if (currentTaskListId) {
+    if (currentTaskListId && currentTaskListId !== HIGH_PRIORITY_LIST_ID) {
       localStorage.setItem('pomodoro-current-list-id', currentTaskListId)
     }
   }, [currentTaskListId])
 
+  useEffect(() => {
+    localStorage.setItem(
+      HIGH_PRIORITY_TASK_ORDER_STORAGE_KEY,
+      JSON.stringify(highPriorityTaskOrder)
+    )
+  }, [highPriorityTaskOrder])
+
   // Keep a per-list task cache so timer task info remains visible after list switching.
   useEffect(() => {
-    if (!currentTaskListId) return
+    if (!currentTaskListId || currentTaskListId === HIGH_PRIORITY_LIST_ID) return
+    const currentTasks = tasks || []
+    if (!tasksBelongToList(currentTaskListId, currentTasks)) return
     setTasksByListId((prev) => ({
       ...prev,
-      [currentTaskListId]: tasks || [],
+      [currentTaskListId]: currentTasks,
     }))
   }, [currentTaskListId, tasks])
+
+  useEffect(() => {
+    if (
+      !sourceTaskSelection ||
+      currentTaskListId !== sourceTaskSelection.listId ||
+      isLoadingTasks
+    ) {
+      return
+    }
+
+    const sourceTask = (tasks || []).find(
+      (task) =>
+        task.id === sourceTaskSelection.taskId &&
+        task.listId === sourceTaskSelection.listId
+    )
+    if (!sourceTask || !sourceTask.collapsed) return
+
+    setTasks((currentTasks) =>
+      (currentTasks || []).map((task) =>
+        task.id === sourceTaskSelection.taskId &&
+        task.listId === sourceTaskSelection.listId
+          ? { ...task, collapsed: false }
+          : task
+      )
+    )
+    setAllTasksCollapsed(false)
+  }, [currentTaskListId, isLoadingTasks, sourceTaskSelection, tasks])
 
   useEffect(() => {
     if (!isAnonymousMode || !currentTaskListId || !isLocalListId(currentTaskListId)) {
       return
     }
 
-    persistTasksForList(currentTaskListId, tasks || [])
+    // Guard against cross-list writes while list/view transitions are still resolving.
+    if (loadedTasksListIdRef.current !== currentTaskListId) {
+      return
+    }
+
+    const currentTasks = tasks || []
+    if (!tasksBelongToList(currentTaskListId, currentTasks)) {
+      return
+    }
+
+    persistTasksForList(currentTaskListId, currentTasks)
   }, [currentTaskListId, isAnonymousMode, tasks])
 
   useEffect(() => {
@@ -1396,6 +1501,71 @@ function App() {
     const loadTasks = async () => {
       if (!currentTaskListId) {
         setTasks([])
+        loadedTasksListIdRef.current = null
+        return
+      }
+
+      if (currentTaskListId === HIGH_PRIORITY_LIST_ID) {
+        try {
+          setIsLoadingTasks(true)
+          const activeLists = (taskLists || []).filter((list) => !list.archived)
+          const taskGroups = await Promise.all(
+            activeLists.map(async (list) => {
+              if (isAnonymousMode || isLocalListId(list.id)) {
+                return normalizeTaskOrder(readLocalTasksForList(list.id)).map((task) => ({
+                  ...task,
+                  listId: list.id,
+                  collapsed: true,
+                }))
+              }
+
+              const listTasks = await apiFetch<Task[]>(
+                `/api/lists/${encodeURIComponent(list.id)}/tasks`
+              )
+              return normalizeTaskOrder(listTasks || []).map((task) => ({
+                ...task,
+                listId: list.id,
+                collapsed: true,
+              }))
+            })
+          )
+          if (cancelled) return
+
+          const nextTasksByListId = Object.fromEntries(
+            activeLists.map((list, index) => [list.id, taskGroups[index]])
+          ) as Record<string, Task[]>
+          const highPriorityTasks = sortHighPriorityTasksByViewOrder(
+            taskGroups
+            .flat()
+            .filter((task) => task.isHighPriority && !task.completed)
+          )
+
+          const visibleTaskKeys = new Set(
+            highPriorityTasks.map((task) => getHighPriorityTaskKey(task))
+          )
+          setHighPriorityTaskOrder((previousOrder) => {
+            const retained = previousOrder.filter((taskKey) =>
+              visibleTaskKeys.has(taskKey)
+            )
+            const existing = new Set(retained)
+            const appended = highPriorityTasks
+              .map((task) => getHighPriorityTaskKey(task))
+              .filter((taskKey) => !existing.has(taskKey))
+            return [...retained, ...appended]
+          })
+
+          setTasksByListId((previous) => ({ ...previous, ...nextTasksByListId }))
+          setTasks(highPriorityTasks)
+          loadedTasksListIdRef.current = HIGH_PRIORITY_LIST_ID
+          setAllTasksCollapsed(true)
+        } catch (err: any) {
+          console.error('Error loading high-priority tasks', err)
+          toast.error('Failed to load high-priority tasks', {
+            description: err?.message || 'Please try again.',
+          })
+        } finally {
+          if (!cancelled) setIsLoadingTasks(false)
+        }
         return
       }
 
@@ -1405,7 +1575,8 @@ function App() {
         const collapsedTasks = normalizeTaskOrder(
           Array.isArray(nextTasks) ? nextTasks : []
         ).map((task) => ({ ...task, collapsed: true }))
-        setTasks(collapsedTasks)
+        setTasks(collapsedTasks.map((task) => ({ ...task, listId: currentTaskListId })))
+        loadedTasksListIdRef.current = currentTaskListId
         setAllTasksCollapsed(true)
         return
       }
@@ -1418,9 +1589,11 @@ function App() {
         if (cancelled) return
         const collapsedTasks = normalizeTaskOrder(listTasks || []).map((task) => ({
           ...task,
+          listId: currentTaskListId,
           collapsed: true,
         }))
         setTasks(collapsedTasks)
+        loadedTasksListIdRef.current = currentTaskListId
         setAllTasksCollapsed(true)
       } catch (err: any) {
         console.error('Error loading tasks', err)
@@ -1436,7 +1609,7 @@ function App() {
     return () => {
       cancelled = true
     }
-  }, [currentTaskListId, isAnonymousMode, refreshNonce])
+  }, [currentTaskListId, isAnonymousMode, refreshNonce, taskLists])
 
 
   const currentTaskList =
@@ -1661,7 +1834,6 @@ function App() {
   const timerRef = useRef<number | null>(null)
   const beepingRef = useRef<number | null>(null)
   const addTaskInputRef = useRef<HTMLTextAreaElement>(null)
-
   const [timerState, setTimerState] = useState<TimerState>(() => {
     return getRestoredTimerRuntime().timerState
   })
@@ -1684,7 +1856,8 @@ function App() {
   const [showClearLocalDataDialog, setShowClearLocalDataDialog] = useState(false)
   const [showTemplatesDialog, setShowTemplatesDialog] = useState(false)
   const [isLocalModeNoticeCollapsed, setIsLocalModeNoticeCollapsed] = useState(() => {
-    return sessionStorage.getItem(LOCAL_MODE_NOTICE_COLLAPSED_SESSION_KEY) === 'true'
+    const stored = sessionStorage.getItem(LOCAL_MODE_NOTICE_COLLAPSED_SESSION_KEY)
+    return stored === null ? true : stored === 'true'
   })
 
   const setLocalModeNoticeCollapsed = (collapsed: boolean) => {
@@ -1693,11 +1866,37 @@ function App() {
   }
 
   const handleSelectTaskList = (listId: string) => {
+    if (
+      currentTaskListId === HIGH_PRIORITY_LIST_ID &&
+      listId !== HIGH_PRIORITY_LIST_ID
+    ) {
+      const hydratedTasks = (
+        isAnonymousMode || isLocalListId(listId)
+          ? normalizeTaskOrder(readLocalTasksForList(listId)).map((task) => ({
+              ...task,
+              listId,
+              collapsed: true,
+            }))
+          : normalizeTaskOrder(
+              tasksBelongToList(listId, tasksByListId[listId] || [])
+                ? tasksByListId[listId] || []
+                : []
+            ).map((task) => ({
+              ...task,
+              listId,
+              collapsed: true,
+            }))
+      )
+      setTasks(hydratedTasks)
+      loadedTasksListIdRef.current = listId
+    } else {
+      setTasks((currentTasks) =>
+        (currentTasks || []).map((task) => ({ ...task, collapsed: true }))
+      )
+      loadedTasksListIdRef.current = null
+    }
     setCurrentTaskListId(listId)
     setAllTasksCollapsed(true)
-    setTasks((currentTasks) =>
-      (currentTasks || []).map((task) => ({ ...task, collapsed: true }))
-    )
   }
 
   useEffect(() => {
@@ -1748,7 +1947,11 @@ function App() {
               const isLongBreak =
                 newCompletedIterations % ITERATIONS_BEFORE_LONG_BREAK === 0
 
-              if (prev.currentTaskId) {
+              if (
+                prev.currentTaskId &&
+                !isHighPriorityView &&
+                currentTaskListId === currentTaskListIdForTimer
+              ) {
                 setTasks((currentTasks) => {
                   return (currentTasks || []).map((task) => {
                     if (task.id === prev.currentTaskId) {
@@ -1832,7 +2035,15 @@ function App() {
         clearInterval(timerRef.current)
       }
     }
-  }, [timerState.isRunning, timerState.needsAcknowledgment, tasks, isMuted])
+  }, [
+    currentTaskListId,
+    currentTaskListIdForTimer,
+    isHighPriorityView,
+    timerState.isRunning,
+    timerState.needsAcknowledgment,
+    tasks,
+    isMuted,
+  ])
 
   // Recalculate timer elapsed time when app comes back from background
   useEffect(() => {
@@ -1892,6 +2103,8 @@ function App() {
 
   useEffect(() => {
     const checkRecurringTasks = () => {
+      if (currentTaskListId === HIGH_PRIORITY_LIST_ID) return
+
       const currentTasks = tasks || []
       const reactivatedTaskIds = new Set(
         currentTasks
@@ -1972,7 +2185,23 @@ function App() {
             (t) => t.id === timerState.currentTaskId && !t.completed
           )
         : null
-      const nextTask = selectedTask || findNextTask()
+      const nextHighPriorityTaskFromCache = isHighPriorityView
+        ? Object.values(tasksByListId)
+            .flat()
+            .find((task) => task.isHighPriority && !task.completed)
+        : null
+      const nextTask = selectedTask || findNextTask() || nextHighPriorityTaskFromCache
+
+      if (isHighPriorityView && !nextTask) {
+        toast.info('No high priority tasks available to start')
+        return
+      }
+
+      if (isHighPriorityView && nextTask?.listId) {
+        toast.success('Starting from High Priority', {
+          description: `Now working on: ${nextTask.name}`,
+        })
+      }
 
       if (nextTask) {
         setTasks((currentTasks) => {
@@ -2000,7 +2229,7 @@ function App() {
         needsAcknowledgment: false,
         isLongBreakNext: false,
       })
-      setCurrentTaskListIdForTimer(currentTaskListId || null)
+      setCurrentTaskListIdForTimer(nextTask?.listId || currentTaskListId || null)
     } else {
       setTimerState((prev) => ({ ...prev, isRunning: true }))
     }
@@ -2068,7 +2297,7 @@ function App() {
       beepingRef.current = null
     }
 
-    const nextTask = findNextTask()
+    const nextTask = isHighPriorityView ? null : findNextTask()
 
     if (nextTask) {
       setTasks((currentTasks) =>
@@ -2087,7 +2316,9 @@ function App() {
       needsAcknowledgment: false,
       isLongBreakNext: false,
     })
-    setCurrentTaskListIdForTimer(currentTaskListId || null)
+    setCurrentTaskListIdForTimer(
+      nextTask?.listId || (isHighPriorityView ? null : currentTaskListId) || null
+    )
     setShowAcknowledgmentDialog(false)
 
     if (nextTask) {
@@ -2118,6 +2349,7 @@ function App() {
   // --- REST-backed TASK CRUD ---
 
   const addTask = async () => {
+    if (isHighPriorityView) return
     if (!newTaskName.trim()) return
     if (!currentTaskListId) {
       toast.error('No list selected')
@@ -2131,7 +2363,7 @@ function App() {
     }
 
     const newTask: Task = {
-      id: `temp-${Date.now()}`,
+      id: createTemporaryTaskId(),
       name: newTaskName.trim(),
       iterations,
       subtasks: [],
@@ -2144,7 +2376,7 @@ function App() {
     if (isAnonymousMode || isLocalListId(currentTaskListId)) {
       const localTask: Task = {
         ...newTask,
-        id: `local-task-${Date.now()}`,
+        id: createLocalTaskId(),
       }
       setTasks((currentTasks) => {
         const nextTasks = normalizeTaskOrder([...(currentTasks || []), localTask])
@@ -2183,6 +2415,7 @@ function App() {
   }
 
   const addTaskFromTemplate = async (task: Task) => {
+    if (isHighPriorityView) return
     if (!currentTaskListId) {
       toast.error('No list selected')
       return
@@ -2190,7 +2423,7 @@ function App() {
 
     const payload: Task = {
       ...task,
-      id: `temp-${Date.now()}`,
+      id: createTemporaryTaskId(),
       order: (tasks || []).length,
       listId: currentTaskListId,
     }
@@ -2198,7 +2431,7 @@ function App() {
     if (isAnonymousMode || isLocalListId(currentTaskListId)) {
       const created: Task = {
         ...payload,
-        id: `local-task-${Date.now()}`,
+        id: createLocalTaskId(),
       }
       setTasks((currentTasks) => {
         const nextTasks = normalizeTaskOrder([...(currentTasks || []), created])
@@ -2240,7 +2473,16 @@ function App() {
   }
 
   const updateTask = async (taskId: string, updatedTask: Task) => {
-    const oldTask = (tasks || []).find((t) => t.id === taskId)
+    const oldTask = (tasks || []).find(
+      (task) => task.id === taskId && task.listId === updatedTask.listId
+    )
+    const sourceListId = updatedTask.listId || oldTask?.listId || currentTaskListId
+    if (!sourceListId || sourceListId === HIGH_PRIORITY_LIST_ID) {
+      toast.error('Unable to find the source list for this task')
+      return
+    }
+    const isSourceTask = (task: Task) =>
+      task.id === taskId && task.listId === sourceListId
     const taskToPersist =
       oldTask && !oldTask.completed && updatedTask.completed && updatedTask.recurrence?.enabled
         ? {
@@ -2293,11 +2535,13 @@ function App() {
         })
 
         if (
+          !isHighPriorityView &&
           timerState.currentTaskId === taskId &&
+          currentTaskListIdForTimer === sourceListId &&
           timerState.phase === 'work'
         ) {
           const nextTask = (currentTasks || []).find(
-            (t) => t.id !== taskId && !t.completed
+            (task) => !isSourceTask(task) && !task.completed
           )
           if (nextTask) {
             setTimerState((prev) => ({
@@ -2440,9 +2684,14 @@ function App() {
         })
       }
 
-      const updatedTasks = tasks.map((t) =>
-        t.id === taskId ? taskToPersist : t
+      const updatedTasks = tasks.map((task) =>
+        isSourceTask(task) ? taskToPersist : task
       )
+      if (isHighPriorityView) {
+        return updatedTasks.filter(
+          (task) => task.isHighPriority === true && task.completed === false
+        )
+      }
       const incompleteTasks = updatedTasks.filter((t) => !t.completed)
       const completedTasks = updatedTasks.filter((t) => t.completed)
       const highPriorityTasks = incompleteTasks.filter((t) => t.isHighPriority)
@@ -2452,11 +2701,16 @@ function App() {
       return [...highPriorityTasks, ...normalPriorityTasks, ...completedTasks]
     })
 
-    if ((isAnonymousMode || isLocalListId(currentTaskListId)) && currentTaskListId) {
-      const nextTasks = (tasks || []).map((t) =>
-        t.id === taskId ? taskToPersist : t
+    if (isAnonymousMode || isLocalListId(sourceListId)) {
+      const sourceTasks = tasksByListId[sourceListId] || tasks || []
+      const nextTasks = sourceTasks.map((t) =>
+        isSourceTask(t) ? taskToPersist : t
       )
-      persistTasksForList(currentTaskListId, nextTasks)
+      setTasksByListId((previous) => ({
+        ...previous,
+        [sourceListId]: nextTasks,
+      }))
+      persistTasksForList(sourceListId, nextTasks)
       return
     }
 
@@ -2475,6 +2729,11 @@ function App() {
   }
 
   const selectTask = (taskId: string) => {
+    if (isHighPriorityView) {
+      toast.info('Select a source list before choosing a timer task')
+      return
+    }
+
     const task = (tasks || []).find((t) => t.id === taskId)
     if (!task || task.completed) return
 
@@ -2498,9 +2757,30 @@ function App() {
     }
   }
 
-  const deleteTask = async (taskId: string) => {
-    const task = (tasks || []).find((t) => t.id === taskId)
-    if (!task?.completed && timerState.currentTaskId === taskId && timerState.isRunning) {
+  const openSourceTask = (task: Task) => {
+    const sourceListId = task.listId
+    if (!sourceListId || sourceListId === HIGH_PRIORITY_LIST_ID) {
+      toast.error('Unable to find the source list for this task')
+      return
+    }
+
+    setSourceTaskSelection({ listId: sourceListId, taskId: task.id })
+    handleSelectTaskList(sourceListId)
+  }
+
+  const deleteTask = async (task: Task) => {
+    const taskId = task.id
+    const sourceListId = task.listId || currentTaskListId
+    if (!sourceListId || sourceListId === HIGH_PRIORITY_LIST_ID) {
+      toast.error('Unable to find the source list for this task')
+      return
+    }
+    if (
+      !task?.completed &&
+      timerState.currentTaskId === taskId &&
+      currentTaskListIdForTimer === sourceListId &&
+      timerState.isRunning
+    ) {
       toast.error('Cannot delete', {
         description: 'Cannot delete the current running task',
       })
@@ -2508,14 +2788,26 @@ function App() {
     }
 
     // optimistic
-    const nextTasks = (tasks || []).filter((t) => t.id !== taskId)
+    const nextTasks = (tasks || []).filter(
+      (currentTask) =>
+        currentTask.id !== taskId || currentTask.listId !== sourceListId
+    )
     setTasks(nextTasks)
-    if ((isAnonymousMode || isLocalListId(currentTaskListId)) && currentTaskListId) {
-      persistTasksForList(currentTaskListId, nextTasks)
+    if (isAnonymousMode || isLocalListId(sourceListId)) {
+      const sourceTasks = tasksByListId[sourceListId] || tasks || []
+      const nextSourceTasks = sourceTasks.filter(
+        (currentTask) =>
+          currentTask.id !== taskId || currentTask.listId !== sourceListId
+      )
+      setTasksByListId((previous) => ({
+        ...previous,
+        [sourceListId]: nextSourceTasks,
+      }))
+      persistTasksForList(sourceListId, nextSourceTasks)
     }
     toast.success('Task deleted')
 
-    if (isAnonymousMode || isLocalListId(currentTaskListId)) {
+    if (isAnonymousMode || isLocalListId(sourceListId)) {
       return
     }
 
@@ -2537,14 +2829,14 @@ function App() {
     copyTask: boolean
   ): Task => ({
     ...task,
-    id: `temp-${Date.now()}`,
+    id: createTemporaryTaskId(),
     listId: targetListId,
     collapsed: true,
     order: Date.now(),
-    subtasks: (task.subtasks || []).map((subtask) => ({
+      subtasks: (task.subtasks || []).map((subtask) => ({
       ...subtask,
       id: copyTask
-        ? `subtask-${Date.now()}-${Math.random().toString(16).slice(2)}`
+        ? createUniqueId('subtask')
         : subtask.id,
     })),
   })
@@ -2565,7 +2857,7 @@ function App() {
     if (isAnonymousMode || isLocalListId(targetListId)) {
       const created: Task = {
         ...payload,
-        id: `local-task-${Date.now()}`,
+        id: createLocalTaskId(),
       }
       const targetTasks = readLocalTasksForList(targetListId)
       persistTasksForList(targetListId, normalizeTaskOrder([...targetTasks, created]))
@@ -2615,7 +2907,7 @@ function App() {
     if (isAnonymousMode || isLocalListId(currentTaskListId) || isLocalListId(targetListId)) {
       const created: Task = {
         ...payload,
-        id: `local-task-${Date.now()}`,
+        id: createLocalTaskId(),
       }
       const targetTasks = readLocalTasksForList(targetListId)
       persistTasksForList(targetListId, normalizeTaskOrder([...targetTasks, created]))
@@ -2667,7 +2959,7 @@ function App() {
     // Create a copy with new ID
     const copiedSubtask = {
       ...subtask,
-      id: `subtask-${Date.now()}`,
+      id: createUniqueId('subtask'),
     }
 
     const updatedTargetTask = {
@@ -2822,7 +3114,7 @@ function App() {
   const createTaskList = async (name: string) => {
     if (isAnonymousMode) {
       const newList: TaskList = {
-        id: `local-${Date.now()}`,
+        id: createLocalListId(),
         name,
         createdAt: Date.now(),
       }
@@ -2934,7 +3226,7 @@ function App() {
 
     if (isAnonymousMode || isLocalListId(listId)) {
       const duplicatedList: TaskList = {
-        id: `local-${Date.now()}`,
+        id: createLocalListId(),
         name: `${listToDuplicate.name} (Copy)`,
         createdAt: Date.now(),
       }
@@ -2942,7 +3234,7 @@ function App() {
       const sourceTasks = sourceTasksRaw ? (JSON.parse(sourceTasksRaw) as Task[]) : []
       const duplicatedTasks = sourceTasks.map((task) => ({
         ...task,
-        id: `local-task-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        id: createLocalTaskId(),
       }))
 
       setTaskLists((currentLists) => {
@@ -3197,6 +3489,30 @@ function App() {
     toast.success(`Task moved ${direction}`)
   }
 
+  const handleHighPriorityTouchReorder = (
+    task: Task,
+    direction: 'up' | 'down'
+  ) => {
+    const currentTasks = tasks || []
+    const sourceTaskKey = getHighPriorityTaskKey(task)
+    const currentIndex = currentTasks.findIndex(
+      (candidate) => getHighPriorityTaskKey(candidate) === sourceTaskKey
+    )
+
+    if (currentIndex === -1) return
+
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1
+    if (targetIndex < 0 || targetIndex >= currentTasks.length) return
+
+    const reordered = [...currentTasks]
+    const [movedTask] = reordered.splice(currentIndex, 1)
+    reordered.splice(targetIndex, 0, movedTask)
+
+    setTasks(reordered)
+    setHighPriorityTaskOrder(reordered.map((candidate) => getHighPriorityTaskKey(candidate)))
+    toast.success(`High Priority task moved ${direction}`)
+  }
+
   const handleBackgroundUpload = (file: File) => {
     const reader = new FileReader()
     reader.onload = (event) => {
@@ -3239,24 +3555,6 @@ function App() {
       id: 'gradient-6',
       name: 'Rose Gold',
       url: 'linear-gradient(135deg, #ff6a00 0%, #ee0979 100%)',
-    },
-    {
-      id: 'pattern-1',
-      name: 'Dots',
-      url: 'radial-gradient(circle, oklch(0.45 0.15 260) 1px, transparent 1px)',
-      style: { backgroundSize: '20px 20px' },
-    },
-    {
-      id: 'pattern-2',
-      name: 'Grid',
-      url: 'linear-gradient(oklch(0.45 0.15 260 / 0.1) 1px, transparent 1px), linear-gradient(90deg, oklch(0.45 0.15 260 / 0.1) 1px, transparent 1px)',
-      style: { backgroundSize: '30px 30px' },
-    },
-    {
-      id: 'pattern-3',
-      name: 'Diagonal',
-      url: 'repeating-linear-gradient(45deg, transparent, transparent 10px, oklch(0.45 0.15 260 / 0.05) 10px, oklch(0.45 0.15 260 / 0.05) 20px)',
-      style: {},
     },
     {
       id: 'mesh-1',
@@ -3352,11 +3650,13 @@ function App() {
     (isSyncingLocalData ||
       isLoadingLists ||
       (isLoadingTasks && tasksList.length === 0))
-  const showLocalModeWarning = isAnonymousMode || !isAuthenticated
+  const showLocalModeWarning =
+    isAuthStateResolved && (isAnonymousMode || !isAuthenticated)
 
   useEffect(() => {
     if (!showLocalModeWarning) {
-      setIsLocalModeNoticeCollapsed(false)
+      const stored = sessionStorage.getItem(LOCAL_MODE_NOTICE_COLLAPSED_SESSION_KEY)
+      setIsLocalModeNoticeCollapsed(stored === null ? true : stored === 'true')
     }
   }, [showLocalModeWarning])
 
@@ -3613,7 +3913,11 @@ function App() {
 
             <div className="flex flex-col sm:flex-row gap-2">
               {!timerState.isRunning ? (
-                <Button onClick={startTimer} className="flex-1" size="lg">
+                <Button
+                  onClick={startTimer}
+                  className="flex-1"
+                  size="lg"
+                >
                   <Play size={20} className="mr-2" />
                   {timerState.phase === 'idle' ? 'Start' : 'Resume'}
                 </Button>
@@ -3645,7 +3949,14 @@ function App() {
                 <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="font-medium">Tasks</h2>
+                    <h2 className="font-medium">
+                      {isHighPriorityView ? 'High Priority Tasks' : 'Tasks'}
+                    </h2>
+                    {isHighPriorityView && (
+                      <p className="text-sm text-muted-foreground">
+                        Tasks from all active lists. Read-only here; select a task to open it in its source list.
+                      </p>
+                    )}
                     {totalIterations > 0 && (
                       <p className="text-sm text-muted-foreground">
                         {totalIterations} iterations ·{' '}
@@ -3659,7 +3970,7 @@ function App() {
                   </div>
 
                   <div className="flex gap-2 flex-wrap justify-end">
-                    {tasksList.length > 0 && (
+                    {!isHighPriorityView && tasksList.length > 0 && (
                       <Button
                         variant="ghost"
                         size="sm"
@@ -3669,28 +3980,32 @@ function App() {
                       </Button>
                     )}
 
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowTemplatesDialog(true)}
-                      title="Browse recurring task templates"
-                    >
-                      <Books size={16} className="mr-1" />
-                      Templates
-                    </Button>
+                    {!isHighPriorityView && (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowTemplatesDialog(true)}
+                          title="Browse recurring task templates"
+                        >
+                          <Books size={16} className="mr-1" />
+                          Templates
+                        </Button>
 
-                    <Button
-                      size="sm"
-                      onClick={() => setIsAddingTask(true)}
-                      data-add-task-button
-                    >
-                      <Plus size={16} className="mr-1" />
-                      Add Task
-                    </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => setIsAddingTask(true)}
+                          data-add-task-button
+                        >
+                          <Plus size={16} className="mr-1" />
+                          Add Task
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
 
-                {isAddingTask && (
+                {!isHighPriorityView && isAddingTask && (
                   <Card className="p-3">
                     <div className="flex flex-col sm:flex-row gap-2">
                       <div className="flex gap-2 flex-1">
@@ -3788,35 +4103,65 @@ function App() {
                           animate={{ opacity: 1 }}
                           className="text-center py-12 text-muted-foreground"
                         >
-                          <p>No tasks yet</p>
+                          <p>{isHighPriorityView ? 'Add a high priority task in any of your lists to see them all populate here' : 'No tasks yet'}</p>
                         </motion.div>
                       ) : (
                         <>
                           {incompleteTasks.map((task) => (
                             <motion.div
-                              key={task.id}
+                              key={`${task.listId}-${task.id}`}
                               initial={{ opacity: 0, y: -10 }}
                               animate={{ opacity: 1, y: 0 }}
                               exit={{ opacity: 0, x: -100 }}
                             >
+                              {isHighPriorityView && (
+                                <p className="px-1 pb-1 text-xs text-muted-foreground">
+                                  {(taskLists || []).find((list) => list.id === task.listId)?.name || 'Source list'}
+                                </p>
+                              )}
                               <TaskItem
                                 task={task}
-                                onUpdate={(updatedTask) =>
-                                  void updateTask(task.id, updatedTask)
+                                isActive={!isHighPriorityView && task.id === timerState.currentTaskId}
+                                readOnly={isHighPriorityView}
+                                onOpenSource={isHighPriorityView ? () => openSourceTask(task) : undefined}
+                                isSourceTarget={
+                                  !isHighPriorityView &&
+                                  sourceTaskSelection?.listId === task.listId &&
+                                  sourceTaskSelection?.taskId === task.id
                                 }
-                                onDelete={() => void deleteTask(task.id)}
-                                isActive={task.id === timerState.currentTaskId}
-                                onSelect={() => selectTask(task.id)}
-                                onMoveUp={() => handleTouchReorder(task.id, 'up')}
-                                onMoveDown={() => handleTouchReorder(task.id, 'down')}
-                                canMoveUp={incompleteTasks.findIndex((t) => t.id === task.id) > 0}
-                                canMoveDown={incompleteTasks.findIndex((t) => t.id === task.id) < incompleteTasks.length - 1}
-                                otherTasks={(tasks || []).filter((t) => t.id !== task.id)}
-                                targetTaskLists={targetTaskLists}
-                                onMoveTaskToList={(targetListId) => void moveTaskToList(task.id, targetListId)}
-                                onCopyTaskToList={(targetListId) => void copyTaskToList(task.id, targetListId)}
-                                onMoveSubtaskToTask={moveSubtaskToTask}
-                                onCopySubtaskToTask={copySubtaskToTask}
+                                {...(isHighPriorityView
+                                  ? {
+                                      onTouchReorder: (direction: 'up' | 'down') =>
+                                        handleHighPriorityTouchReorder(task, direction),
+                                      canMoveUp:
+                                        incompleteTasks.findIndex(
+                                          (candidate) =>
+                                            getHighPriorityTaskKey(candidate) ===
+                                            getHighPriorityTaskKey(task)
+                                        ) > 0,
+                                      canMoveDown:
+                                        incompleteTasks.findIndex(
+                                          (candidate) =>
+                                            getHighPriorityTaskKey(candidate) ===
+                                            getHighPriorityTaskKey(task)
+                                        ) <
+                                        incompleteTasks.length - 1,
+                                    }
+                                  : {
+                                      onUpdate: (updatedTask: Task) => void updateTask(task.id, updatedTask),
+                                      onDelete: () => void deleteTask(task),
+                                      onSelect: () => selectTask(task.id),
+                                      onMoveUp: () => handleTouchReorder(task.id, 'up'),
+                                      onMoveDown: () => handleTouchReorder(task.id, 'down'),
+                                      canMoveUp: incompleteTasks.findIndex((t) => t.id === task.id) > 0,
+                                      canMoveDown: incompleteTasks.findIndex((t) => t.id === task.id) < incompleteTasks.length - 1,
+                                      otherTasks: (tasks || []).filter((t) => t.id !== task.id),
+                                      targetTaskLists,
+                                      onMoveTaskToList: (targetListId: string) => void moveTaskToList(task.id, targetListId),
+                                      onCopyTaskToList: (targetListId: string) => void copyTaskToList(task.id, targetListId),
+                                      onMoveSubtaskToTask: moveSubtaskToTask,
+                                      onCopySubtaskToTask: copySubtaskToTask,
+                                    })}
                               />
                             </motion.div>
                           ))}
@@ -3849,53 +4194,65 @@ function App() {
                                   </Button>
                                 </CollapsibleTrigger>
 
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() =>
-                                    setShowBulkDeleteDialog(true)
-                                  }
-                                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                                  title="Delete all completed tasks"
-                                >
-                                  <TrashSimple
-                                    size={16}
-                                    className="mr-1"
-                                  />
-                                  Delete All
-                                </Button>
+                                {!isHighPriorityView && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() =>
+                                      setShowBulkDeleteDialog(true)
+                                    }
+                                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                    title="Delete all completed tasks"
+                                  >
+                                    <TrashSimple
+                                      size={16}
+                                      className="mr-1"
+                                    />
+                                    Delete All
+                                  </Button>
+                                )}
                               </div>
 
                               <CollapsibleContent className="space-y-2 mt-2">
                                 {completedTasks.map((task) => (
                                   <motion.div
-                                    key={task.id}
+                                    key={`${task.listId}-${task.id}`}
                                     initial={{ opacity: 0, y: -10 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0, x: -100 }}
                                   >
+                                    {isHighPriorityView && (
+                                      <p className="px-1 pb-1 text-xs text-muted-foreground">
+                                        {(taskLists || []).find((list) => list.id === task.listId)?.name || 'Source list'}
+                                      </p>
+                                    )}
                                     <TaskItem
                                       task={task}
-                                      onUpdate={(updatedTask) =>
-                                        void updateTask(task.id, updatedTask)
+                                      isActive={!isHighPriorityView && task.id === timerState.currentTaskId}
+                                      readOnly={isHighPriorityView}
+                                      onOpenSource={isHighPriorityView ? () => openSourceTask(task) : undefined}
+                                      isSourceTarget={
+                                        !isHighPriorityView &&
+                                        sourceTaskSelection?.listId === task.listId &&
+                                        sourceTaskSelection?.taskId === task.id
                                       }
-                                      onDelete={() =>
-                                        void deleteTask(task.id)
-                                      }
-                                      isActive={
-                                        task.id === timerState.currentTaskId
-                                      }
-                                      onSelect={() => selectTask(task.id)}
-                                      onMoveUp={() => handleTouchReorder(task.id, 'up')}
-                                      onMoveDown={() => handleTouchReorder(task.id, 'down')}
-                                      canMoveUp={completedTasks.findIndex((t) => t.id === task.id) > 0}
-                                      canMoveDown={completedTasks.findIndex((t) => t.id === task.id) < completedTasks.length - 1}
-                                      otherTasks={(tasks || []).filter((t) => t.id !== task.id)}
-                                      targetTaskLists={targetTaskLists}
-                                      onMoveTaskToList={(targetListId) => void moveTaskToList(task.id, targetListId)}
-                                      onCopyTaskToList={(targetListId) => void copyTaskToList(task.id, targetListId)}
-                                      onMoveSubtaskToTask={moveSubtaskToTask}
-                                      onCopySubtaskToTask={copySubtaskToTask}
+                                      {...(!isHighPriorityView
+                                        ? {
+                                            onUpdate: (updatedTask: Task) => void updateTask(task.id, updatedTask),
+                                            onDelete: () => void deleteTask(task),
+                                            onSelect: () => selectTask(task.id),
+                                            onMoveUp: () => handleTouchReorder(task.id, 'up'),
+                                            onMoveDown: () => handleTouchReorder(task.id, 'down'),
+                                            canMoveUp: completedTasks.findIndex((t) => t.id === task.id) > 0,
+                                            canMoveDown: completedTasks.findIndex((t) => t.id === task.id) < completedTasks.length - 1,
+                                            otherTasks: (tasks || []).filter((t) => t.id !== task.id),
+                                            targetTaskLists,
+                                            onMoveTaskToList: (targetListId: string) => void moveTaskToList(task.id, targetListId),
+                                            onCopyTaskToList: (targetListId: string) => void copyTaskToList(task.id, targetListId),
+                                            onMoveSubtaskToTask: moveSubtaskToTask,
+                                            onCopySubtaskToTask: copySubtaskToTask,
+                                          }
+                                        : {})}
                                     />
                                   </motion.div>
                                 ))}

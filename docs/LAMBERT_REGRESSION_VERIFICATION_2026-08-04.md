@@ -61,8 +61,17 @@ Expected interpretation:
 - Confirm subtask copy leaves the source subtask in place and appends a new-id copy to the target task.
 - Confirm completed target tasks are unavailable for subtask move targets.
 
+### High Priority View
+
+- Create high-priority tasks in at least two active lists, then select `High Priority` from the list selector's Views section.
+- Confirm the view includes each high-priority task, labels it with its source list, and does not appear as an editable or persisted task list.
+- Complete, edit, and delete a task from the view; return to its source list after each action and confirm the original task reflects that change.
+- Confirm list-level actions are unavailable in the aggregate view: adding tasks, templates, reordering, bulk deletion, and task/subtask transfers.
+- Confirm background menus no longer offer Dots, Grid, or Diagonal patterns while gradients, mesh gradients, upload, and opacity controls remain available.
+
 ## Verification Notes
 
 - The named regressions are not fully covered by existing automated tests; they cross browser auth redirects, local storage, and minute-based recurrence checks.
 - The API smoke script is still useful for separating backend contract availability from UI behavior, but authenticated coverage depends on a reachable API and test identity headers.
+- The High Priority view is a frontend-only projection: source-task changes use each task's existing `listId` and task endpoint/local storage key rather than creating a list or copying a task.
 - No team-level decision is recorded for this pass because this file documents verification scope and current behavior rather than changing product direction.

@@ -28,9 +28,12 @@ import { RecurrenceDialog } from '@/components/RecurrenceDialog'
 
 interface TaskItemProps {
   task: Task
-  onUpdate: (task: Task) => void
-  onDelete: () => void
+  onUpdate?: (task: Task) => void
+  onDelete?: () => void
   isActive: boolean
+  readOnly?: boolean
+  onOpenSource?: () => void
+  isSourceTarget?: boolean
   onDragStart?: () => void
   onDragEnd?: () => void
   onDragOver?: (e: React.DragEvent<HTMLDivElement>) => void
@@ -438,9 +441,12 @@ function SubtaskItem({
 
 export function TaskItem({ 
   task, 
-  onUpdate, 
-  onDelete, 
+  onUpdate = () => {},
+  onDelete = () => {},
   isActive,
+  readOnly = false,
+  onOpenSource,
+  isSourceTarget = false,
   onDragStart,
   onDragEnd,
   onDragOver,
@@ -689,6 +695,79 @@ export function TaskItem({
   const incompleteSubtasks = task.subtasks.filter(subtask => !subtask.completed)
   const completedSubtasks = task.subtasks.filter(subtask => subtask.completed)
   const incompleteOtherTasks = otherTasks.filter((otherTask) => !otherTask.completed)
+
+  if (readOnly) {
+    const handleOpenSource = () => onOpenSource?.()
+
+    return (
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={handleOpenSource}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault()
+            handleOpenSource()
+          }
+        }}
+        className={cn(
+          'cursor-pointer border rounded-lg p-2.5 sm:p-3 transition-colors max-w-full overflow-x-hidden hover:border-accent hover:bg-accent/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40',
+          task.completed && 'opacity-60',
+          task.isHighPriority && !task.completed && 'border-primary bg-primary/5',
+          isSourceTarget && 'ring-2 ring-accent/40'
+        )}
+        aria-label={`Open ${task.name} in its source list`}
+      >
+        <div className="flex items-start gap-2 min-w-0">
+          {task.isHighPriority && !task.completed && (
+            <Star size={16} weight="fill" className="text-primary mt-0.5 shrink-0" />
+          )}
+          <div className="min-w-0 flex-1">
+            <p className={cn('font-medium text-base md:text-sm break-words [overflow-wrap:anywhere]', task.completed && 'line-through text-muted-foreground')}>
+              {task.name}
+            </p>
+            <div className="mt-1 flex items-center gap-2 flex-wrap text-[10px] md:text-xs text-muted-foreground">
+              <span>{totalIterations} {totalIterations === 1 ? 'iteration' : 'iterations'}</span>
+              <span>{formatTimeDisplay(timeCalc.days, timeCalc.hours, timeCalc.minutes)}</span>
+              {task.subtasks.length > 0 && (
+                <span>{task.subtasks.length} {task.subtasks.length === 1 ? 'subtask' : 'subtasks'}</span>
+              )}
+            </div>
+          </div>
+          {onTouchReorder && (
+            <div className="flex items-center gap-1 shrink-0">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onTouchReorder('up')
+                }}
+                disabled={!canMoveUp}
+                title="Move task up"
+              >
+                <CaretUp size={14} />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onTouchReorder('down')
+                }}
+                disabled={!canMoveDown}
+                title="Move task down"
+              >
+                <CaretDown size={14} />
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div
