@@ -8,6 +8,17 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      swap_to_production:
+        description: 'Swap test1 slot into production after a healthy deploy'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  AZURE_WEBAPP_NAME: pomo
+  AZURE_STAGING_SLOT: test1
+  APP_STARTUP_COMMAND: npm --prefix src/api run start
 
 jobs:
   build:
@@ -89,9 +100,9 @@ jobs:
         continue-on-error: true
         uses: azure/webapps-deploy@v3
         with:
-          app-name: 'pomo'
-          slot-name: 'test1'
-          startup-command: 'npm --prefix src/api run start'
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          slot-name: ${{ env.AZURE_STAGING_SLOT }}
+          startup-command: ${{ env.APP_STARTUP_COMMAND }}
           package: .
 
       - name: Wait before retry after transient deployment conflict
@@ -103,8 +114,42 @@ jobs:
         id: deploy-to-webapp-retry
         uses: azure/webapps-deploy@v3
         with:
-          app-name: 'pomo'
-          slot-name: 'test1'
-          startup-command: 'npm --prefix src/api run start'
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          slot-name: ${{ env.AZURE_STAGING_SLOT }}
+          startup-command: ${{ env.APP_STARTUP_COMMAND }}
           package: .
+
+      - name: Warm staging slot before production swap
+        if: github.event_name == 'push' || inputs.swap_to_production == true
+        run: |
+          staging_health_url="https://${AZURE_WEBAPP_NAME}-${AZURE_STAGING_SLOT}.azurewebsites.net/api/lists"
+          for attempt in {1..18}; do
+            status_code=$(curl --silent --show-error --location --output /dev/null --write-out "%{http_code}" "$staging_health_url" || true)
+            if [ "$status_code" = "200" ]; then
+              echo "Staging slot health check passed."
+              exit 0
+            fi
+
+            echo "Staging slot health check attempt ${attempt} returned ${status_code}; retrying."
+            sleep 10
+          done
+
+          echo "::error::Staging slot did not pass health check at ${staging_health_url}."
+          exit 1
+
+      - name: Swap staging slot into production
+        if: github.event_name == 'push' || inputs.swap_to_production == true
+        run: |
+          resource_group=$(az webapp list --query "[?name=='${AZURE_WEBAPP_NAME}'].resourceGroup | [0]" --output tsv)
+          if [ -z "$resource_group" ]; then
+            echo "::error::Could not resolve resource group for App Service ${AZURE_WEBAPP_NAME}."
+            exit 1
+          fi
+
+          az webapp deployment slot swap \
+            --name "$AZURE_WEBAPP_NAME" \
+            --resource-group "$resource_group" \
+            --slot "$AZURE_STAGING_SLOT" \
+            --target-slot production
+
           

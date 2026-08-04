@@ -94,6 +94,7 @@ const LOCAL_STORAGE_BACKUP_SPECIAL_KEYS = new Set(['personalTasks'])
 const AUTH_ME_TIMEOUT_MS = 5000
 const AUTH_REFRESH_TIMEOUT_MS = 5000
 const AUTH_LOCAL_MIGRATION_KEY_PREFIX = 'pomodoro-auth-local-migration:'
+const LOCAL_MODE_NOTICE_COLLAPSED_SESSION_KEY = 'pomodoro-local-mode-notice-collapsed'
 
 type LocalStorageBackup = {
   version: number
@@ -818,7 +819,7 @@ function App() {
       redirectToLogout()
       return
     }
-    setShowLoginOverlay(true)
+    redirectToLogin()
   }
 
   useEffect(() => {
@@ -1657,7 +1658,14 @@ function App() {
   const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false)
   const [showClearLocalDataDialog, setShowClearLocalDataDialog] = useState(false)
   const [showTemplatesDialog, setShowTemplatesDialog] = useState(false)
-  const [isLocalModeNoticeCollapsed, setIsLocalModeNoticeCollapsed] = useState(false)
+  const [isLocalModeNoticeCollapsed, setIsLocalModeNoticeCollapsed] = useState(() => {
+    return sessionStorage.getItem(LOCAL_MODE_NOTICE_COLLAPSED_SESSION_KEY) === 'true'
+  })
+
+  const setLocalModeNoticeCollapsed = (collapsed: boolean) => {
+    setIsLocalModeNoticeCollapsed(collapsed)
+    sessionStorage.setItem(LOCAL_MODE_NOTICE_COLLAPSED_SESSION_KEY, String(collapsed))
+  }
 
   const handleSelectTaskList = (listId: string) => {
     setCurrentTaskListId(listId)
@@ -1859,45 +1867,72 @@ function App() {
 
   useEffect(() => {
     const checkRecurringTasks = () => {
-      setTasks((currentTasks) => {
-        const tasks = currentTasks || []
-        let hasChanges = false
+      const currentTasks = tasks || []
+      const reactivatedTaskIds = new Set(
+        currentTasks
+          .filter((task) => shouldReactivateRecurringTask(task))
+          .map((task) => task.id)
+      )
 
-        const updatedTasks = tasks.map((task) => {
-          if (shouldReactivateRecurringTask(task)) {
-            hasChanges = true
-            toast.success('Recurring task reactivated', {
-              description: `${task.name} is ready to do again!`,
-            })
-            return {
-              ...task,
-              completed: false,
-              completedIterations: 0,
-            }
+      if (reactivatedTaskIds.size === 0) return
+
+      const updatedTasks = currentTasks.map((task) => {
+        if (reactivatedTaskIds.has(task.id)) {
+          toast.success('Recurring task reactivated', {
+            description: `${task.name} is ready to do again!`,
+          })
+          return {
+            ...task,
+            completed: false,
+            completedIterations: 0,
           }
-          return task
-        })
-
-        if (hasChanges) {
-          const incompleteTasks = updatedTasks.filter((t) => !t.completed)
-          const completedTasks = updatedTasks.filter((t) => t.completed)
-          const highPriorityTasks = incompleteTasks.filter(
-            (t) => t.isHighPriority
-          )
-          const normalPriorityTasks = incompleteTasks.filter(
-            (t) => !t.isHighPriority
-          )
-          return [...highPriorityTasks, ...normalPriorityTasks, ...completedTasks]
         }
-
-        return tasks
+        return task
       })
+
+      const incompleteTasks = updatedTasks.filter((t) => !t.completed)
+      const completedTasks = updatedTasks.filter((t) => t.completed)
+      const highPriorityTasks = incompleteTasks.filter(
+        (t) => t.isHighPriority
+      )
+      const normalPriorityTasks = incompleteTasks.filter(
+        (t) => !t.isHighPriority
+      )
+      const sortedTasks = [
+        ...highPriorityTasks,
+        ...normalPriorityTasks,
+        ...completedTasks,
+      ]
+
+      setTasks(sortedTasks)
+
+      if (
+        currentTaskListId &&
+        (isAnonymousMode || isLocalListId(currentTaskListId))
+      ) {
+        persistTasksForList(currentTaskListId, sortedTasks)
+        return
+      }
+
+      updatedTasks
+        .filter((task) => reactivatedTaskIds.has(task.id))
+        .forEach((task) => {
+          void apiFetch(`/api/tasks/${encodeURIComponent(task.id)}`, {
+            method: 'PATCH',
+            body: JSON.stringify(task),
+          }).catch((err: any) => {
+            console.error('Error reactivating recurring task', err)
+            toast.error('Failed to sync recurring task', {
+              description: err?.message || 'Changes may not be saved.',
+            })
+          })
+        })
     }
 
     checkRecurringTasks()
     const interval = setInterval(checkRecurringTasks, 60000)
     return () => clearInterval(interval)
-  }, [])
+  }, [currentTaskListId, isAnonymousMode, tasks])
 
   // --- HELPERS ---
 
@@ -2181,25 +2216,24 @@ function App() {
 
   const updateTask = async (taskId: string, updatedTask: Task) => {
     const oldTask = (tasks || []).find((t) => t.id === taskId)
-
-    // optimistic UI update
-    setTasks((currentTasks) => {
-      const tasks = currentTasks || []
-      let nextUpdatedTask = updatedTask
-
-      if (oldTask && !oldTask.completed && updatedTask.completed) {
-        const completedIterations =
-          updatedTask.completedIterations || updatedTask.iterations
-
-        if (updatedTask.recurrence?.enabled) {
-          nextUpdatedTask = {
+    const taskToPersist =
+      oldTask && !oldTask.completed && updatedTask.completed && updatedTask.recurrence?.enabled
+        ? {
             ...updatedTask,
             recurrence: {
               ...updatedTask.recurrence,
               lastCompletedAt: Date.now(),
             },
           }
-        }
+        : updatedTask
+
+    // optimistic UI update
+    setTasks((currentTasks) => {
+      const tasks = currentTasks || []
+
+      if (oldTask && !oldTask.completed && updatedTask.completed) {
+        const completedIterations =
+          updatedTask.completedIterations || updatedTask.iterations
 
         setStatistics((currentStats) => {
           if (!currentStats)
@@ -2382,7 +2416,7 @@ function App() {
       }
 
       const updatedTasks = tasks.map((t) =>
-        t.id === taskId ? updatedTask : t
+        t.id === taskId ? taskToPersist : t
       )
       const incompleteTasks = updatedTasks.filter((t) => !t.completed)
       const completedTasks = updatedTasks.filter((t) => t.completed)
@@ -2395,7 +2429,7 @@ function App() {
 
     if ((isAnonymousMode || isLocalListId(currentTaskListId)) && currentTaskListId) {
       const nextTasks = (tasks || []).map((t) =>
-        t.id === taskId ? updatedTask : t
+        t.id === taskId ? taskToPersist : t
       )
       persistTasksForList(currentTaskListId, nextTasks)
       return
@@ -2405,7 +2439,7 @@ function App() {
     try {
       await apiFetch(`/api/tasks/${encodeURIComponent(taskId)}`, {
         method: 'PATCH',
-        body: JSON.stringify(updatedTask),
+        body: JSON.stringify(taskToPersist),
       })
     } catch (err: any) {
       console.error('Error updating task', err)
@@ -2468,6 +2502,122 @@ function App() {
       console.error('Error deleting task', err)
       toast.error('Failed to delete task from server', {
         description: err?.message || 'It may reappear on reload.',
+      })
+    }
+  }
+
+  const buildTaskTransferPayload = (
+    task: Task,
+    targetListId: string,
+    copyTask: boolean
+  ): Task => ({
+    ...task,
+    id: `temp-${Date.now()}`,
+    listId: targetListId,
+    collapsed: true,
+    order: Date.now(),
+    subtasks: (task.subtasks || []).map((subtask) => ({
+      ...subtask,
+      id: copyTask
+        ? `subtask-${Date.now()}-${Math.random().toString(16).slice(2)}`
+        : subtask.id,
+    })),
+  })
+
+  const copyTaskToList = async (taskId: string, targetListId: string) => {
+    const task = (tasks || []).find((t) => t.id === taskId)
+    const targetList = (taskLists || []).find((list) => list.id === targetListId)
+
+    if (!task || !targetList || targetListId === currentTaskListId) {
+      toast.error('Cannot copy task', {
+        description: 'Invalid source task or target list',
+      })
+      return
+    }
+
+    const payload = buildTaskTransferPayload(task, targetListId, true)
+
+    if (isAnonymousMode || isLocalListId(targetListId)) {
+      const created: Task = {
+        ...payload,
+        id: `local-task-${Date.now()}`,
+      }
+      const targetTasks = readLocalTasksForList(targetListId)
+      persistTasksForList(targetListId, normalizeTaskOrder([...targetTasks, created]))
+      toast.success('Task copied', {
+        description: `Copied to "${targetList.name}"`,
+      })
+      return
+    }
+
+    try {
+      await apiFetch<Task>(`/api/lists/${encodeURIComponent(targetListId)}/tasks`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      })
+      toast.success('Task copied', {
+        description: `Copied to "${targetList.name}"`,
+      })
+    } catch (err: any) {
+      console.error('Error copying task', err)
+      toast.error('Failed to copy task', {
+        description: err?.message || 'Please try again.',
+      })
+    }
+  }
+
+  const moveTaskToList = async (taskId: string, targetListId: string) => {
+    const task = (tasks || []).find((t) => t.id === taskId)
+    const targetList = (taskLists || []).find((list) => list.id === targetListId)
+
+    if (!task || !targetList || targetListId === currentTaskListId || !currentTaskListId) {
+      toast.error('Cannot move task', {
+        description: 'Invalid source task or target list',
+      })
+      return
+    }
+
+    if (!task.completed && timerState.currentTaskId === taskId && timerState.isRunning) {
+      toast.error('Cannot move', {
+        description: 'Cannot move the current running task',
+      })
+      return
+    }
+
+    const payload = buildTaskTransferPayload(task, targetListId, false)
+    const nextCurrentTasks = (tasks || []).filter((t) => t.id !== taskId)
+
+    if (isAnonymousMode || isLocalListId(currentTaskListId) || isLocalListId(targetListId)) {
+      const created: Task = {
+        ...payload,
+        id: `local-task-${Date.now()}`,
+      }
+      const targetTasks = readLocalTasksForList(targetListId)
+      persistTasksForList(targetListId, normalizeTaskOrder([...targetTasks, created]))
+      setTasks(nextCurrentTasks)
+      persistTasksForList(currentTaskListId, nextCurrentTasks)
+      toast.success('Task moved', {
+        description: `Moved to "${targetList.name}"`,
+      })
+      return
+    }
+
+    try {
+      await apiFetch<Task>(`/api/lists/${encodeURIComponent(targetListId)}/tasks`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      })
+      await apiFetch(`/api/tasks/${encodeURIComponent(taskId)}`, {
+        method: 'DELETE',
+      })
+      setTasks(nextCurrentTasks)
+      toast.success('Task moved', {
+        description: `Moved to "${targetList.name}"`,
+      })
+    } catch (err: any) {
+      console.error('Error moving task', err)
+      toast.error('Failed to move task', {
+        description: err?.message || 'Please try again.',
       })
     }
   }
@@ -3168,6 +3318,9 @@ function App() {
     })
   const completedTasks = tasksList.filter((t) => t.completed)
   const completedTasksCount = completedTasks.length
+  const targetTaskLists = (taskLists || []).filter(
+    (list) => list.id !== currentTaskListId && !list.archived
+  )
   const showDataPrepOverlay =
     isAuthenticated &&
     !isAnonymousMode &&
@@ -3175,12 +3328,6 @@ function App() {
       isLoadingLists ||
       (isLoadingTasks && tasksList.length === 0))
   const showLocalModeWarning = isAnonymousMode || !isAuthenticated
-
-  useEffect(() => {
-    if (!showLocalModeWarning) {
-      setIsLocalModeNoticeCollapsed(false)
-    }
-  }, [showLocalModeWarning])
 
   const clearLocalTaskData = () => {
     const keysToRemove: string[] = []
@@ -3268,7 +3415,7 @@ function App() {
                 onImportLocalData={importLocalBackup}
                 isAnonymousMode={isAnonymousMode}
                 isAuthenticated={isAuthenticated}
-                onLogin={() => setShowLoginOverlay(true)}
+                onLogin={handleLoginClick}
                 onLogout={redirectToLogout}
               />
               {!isCompact && (
@@ -3339,7 +3486,7 @@ function App() {
             )}
 
             {showLocalModeWarning && (
-              <Collapsible open={!isLocalModeNoticeCollapsed} onOpenChange={(open) => setIsLocalModeNoticeCollapsed(!open)}>
+              <Collapsible open={!isLocalModeNoticeCollapsed} onOpenChange={(open) => setLocalModeNoticeCollapsed(!open)}>
                 <Card className="p-3 border-amber-300/60 bg-amber-50/70">
                   <CollapsibleTrigger asChild>
                     <Button
@@ -3374,7 +3521,7 @@ function App() {
                           <Button
                             variant="default"
                             size="sm"
-                            onClick={() => window.location.href = '/.auth/login/aad?post_login_redirect_url='}
+                            onClick={handleLoginClick}
                           >
                             Login
                           </Button>
@@ -3634,6 +3781,9 @@ function App() {
                                 canMoveUp={incompleteTasks.findIndex((t) => t.id === task.id) > 0}
                                 canMoveDown={incompleteTasks.findIndex((t) => t.id === task.id) < incompleteTasks.length - 1}
                                 otherTasks={(tasks || []).filter((t) => t.id !== task.id)}
+                                targetTaskLists={targetTaskLists}
+                                onMoveTaskToList={(targetListId) => void moveTaskToList(task.id, targetListId)}
+                                onCopyTaskToList={(targetListId) => void copyTaskToList(task.id, targetListId)}
                                 onMoveSubtaskToTask={moveSubtaskToTask}
                                 onCopySubtaskToTask={copySubtaskToTask}
                               />
@@ -3710,6 +3860,9 @@ function App() {
                                       canMoveUp={completedTasks.findIndex((t) => t.id === task.id) > 0}
                                       canMoveDown={completedTasks.findIndex((t) => t.id === task.id) < completedTasks.length - 1}
                                       otherTasks={(tasks || []).filter((t) => t.id !== task.id)}
+                                      targetTaskLists={targetTaskLists}
+                                      onMoveTaskToList={(targetListId) => void moveTaskToList(task.id, targetListId)}
+                                      onCopyTaskToList={(targetListId) => void copyTaskToList(task.id, targetListId)}
                                       onMoveSubtaskToTask={moveSubtaskToTask}
                                       onCopySubtaskToTask={copySubtaskToTask}
                                     />

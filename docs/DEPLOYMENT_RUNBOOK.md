@@ -86,7 +86,26 @@ Checklist:
 - Always On enabled for production plans.
 - Confirm no auth redirect or middleware blocks the health endpoint.
 
-## 6. Post-Deploy Verification
+## 6. Slot Promotion
+
+The `main` deployment workflow deploys the package to the `test1` slot, warms the slot with:
+
+```text
+https://pomo-test1.azurewebsites.net/api/lists
+```
+
+Then it swaps `test1` into production only after the health check returns `200`.
+
+Manual dispatch behavior:
+- Leave `swap_to_production` disabled to build and deploy the `test1` slot without promotion.
+- Enable `swap_to_production` to run the same health-gated production swap used by pushes to `main`.
+
+Operational notes:
+- The workflow resolves the App Service resource group after Azure login; no resource group secret is required.
+- Slot package contents and startup command must stay aligned with the `working` slot workflow.
+- If the staging health check fails, do not swap. Review App Service logs, Key Vault reference state, and required app settings first.
+
+## 7. Post-Deploy Verification
 
 Run after each production deployment:
 
