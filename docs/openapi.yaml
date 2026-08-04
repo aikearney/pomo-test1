@@ -1,0 +1,508 @@
+openapi: 3.0.3
+info:
+  title: Pomodoro Timer API - Copilot/Alexa AI Endpoints
+  description: |
+    Unified API for creating tasks and searching lists via Copilot, Alexa, and other AI integrations.
+    
+    ## Authentication
+    
+    Two authentication modes are supported:
+    1. **Bearer Token (JWT)** — Preferred for external clients
+    2. **Azure Easy Auth** — Fallback for web app
+    
+    Provide one of:
+    - `Authorization: Bearer {jwt-token}` (recommended)
+    - `x-ms-client-principal` header (legacy)
+    
+    If Bearer token is present but invalid, the request is rejected (no fallback to Easy Auth).
+  version: "1.0.0"
+  contact:
+    name: Pomodoro API Support
+    url: https://github.com/aikearney/pomo-test1
+  license:
+    name: MIT
+
+servers:
+  - url: https://pomodoro-app.azurewebsites.net/api
+    description: Production
+  - url: http://localhost:7071/api
+    description: Local development
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT Bearer token with expected claims:
+        - `sub`: User ID (subject)
+        - `aud`: Audience (must match JWT_AUDIENCE env var)
+        - `exp`: Expiration time
+        - `iat`: Issued at time
+    EasyAuth:
+      type: apiKey
+      in: header
+      name: x-ms-client-principal
+      description: Azure App Service Easy Auth principal (base64-encoded JSON)
+
+  schemas:
+    Task:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: Task title (non-empty string)
+          example: "Buy milk"
+        iterations:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 1
+          description: Pomodoro count (positive integer)
+          example: 2
+        isHighPriority:
+          type: boolean
+          default: false
+          description: Priority flag
+          example: false
+        subtasks:
+          type: array
+          maxItems: 20
+          description: Nested tasks (one level deep, max 20)
+          items:
+            $ref: "#/components/schemas/Subtask"
+    
+    Subtask:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: Subtask title
+          example: "Check price online"
+        iterations:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 1
+          description: Pomodoro count for this subtask
+          example: 1
+    
+    TaskResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        name:
+          type: string
+          example: "Buy milk"
+        iterations:
+          type: integer
+          example: 1
+        isHighPriority:
+          type: boolean
+          example: false
+        subtasks:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              name:
+                type: string
+              iterations:
+                type: integer
+              completed:
+                type: boolean
+        completed:
+          type: boolean
+          example: false
+        createdAt:
+          type: integer
+          format: int64
+          description: Unix timestamp (milliseconds)
+          example: 1719321600000
+    
+    ListResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        name:
+          type: string
+          example: "Shopping"
+        createdAt:
+          type: integer
+          format: int64
+          example: 1719321600000
+        color:
+          type: string
+          nullable: true
+          example: "#FF5733"
+        order:
+          type: integer
+          example: 1
+        pinned:
+          type: boolean
+          example: true
+        taskCount:
+          type: integer
+          example: 5
+    
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          enum:
+            - UNAUTHORIZED
+            - FORBIDDEN
+            - INVALID_REQUEST
+            - BATCH_SIZE_EXCEEDED
+            - LIST_NOT_FOUND
+            - LIST_NOT_FOUND_NO_AUTO_CREATE
+            - INVALID_ITERATIONS
+            - INVALID_PAYLOAD
+            - INTERNAL_ERROR
+            - RATE_LIMITED
+          example: "INVALID_REQUEST"
+        message:
+          type: string
+          description: Human-readable error message
+          example: "tasks[0].name is required and must be non-empty"
+        field:
+          type: string
+          description: Field path that caused the error (if applicable)
+          example: "tasks[0].name"
+        received:
+          description: Value that was received (for debugging)
+          example: ""
+        correlationId:
+          type: string
+          format: uuid
+          description: Request correlation ID for debugging
+          example: "550e8400-e29b-41d4-a716-446655440000"
+
+paths:
+  /ai/tasks:
+    post:
+      operationId: createTasks
+      summary: Create batch tasks with optional list auto-creation
+      description: |
+        Create one or more tasks (with optional subtasks) in a specified list.
+        Supports automatic list creation if the list doesn't exist.
+        
+        **Validation:** All tasks are validated before any are persisted.
+        If ANY task fails validation, the entire batch is rejected.
+        
+        **Atomicity:** All tasks are created in a single transaction.
+        If transaction fails, no partial state is created.
+      tags:
+        - Tasks
+      security:
+        - BearerAuth: []
+        - EasyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - tasks
+              properties:
+                listId:
+                  type: string
+                  format: uuid
+                  description: |
+                    Existing list ID (takes precedence over listName).
+                    If provided, listName is ignored.
+                  example: "550e8400-e29b-41d4-a716-446655440000"
+                listName:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                  description: |
+                    List name (used if listId not provided).
+                    Exact match (case-insensitive).
+                  example: "Shopping"
+                createListIfMissing:
+                  type: boolean
+                  default: false
+                  description: |
+                    If true and list not found, auto-create new list with listName.
+                    If false and list not found, returns 400 error.
+                  example: true
+                tasks:
+                  type: array
+                  minItems: 1
+                  maxItems: 50
+                  description: Tasks to create (1–50 per request)
+                  items:
+                    $ref: "#/components/schemas/Task"
+      responses:
+        "201":
+          description: Tasks created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  listId:
+                    type: string
+                    format: uuid
+                  listName:
+                    type: string
+                  listCreated:
+                    type: boolean
+                    description: Whether a new list was created
+                  tasksCreated:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TaskResponse"
+                  summary:
+                    type: object
+                    properties:
+                      tasksCount:
+                        type: integer
+                      subtasksCount:
+                        type: integer
+                      totalPomodorosCreated:
+                        type: integer
+              examples:
+                single_task:
+                  value:
+                    listId: "abc123"
+                    listName: "Shopping"
+                    listCreated: false
+                    tasksCreated:
+                      - id: "task-1-uuid"
+                        name: "Buy milk"
+                        iterations: 1
+                        isHighPriority: false
+                        subtasks: []
+                        completed: false
+                        createdAt: 1719321600000
+                    summary:
+                      tasksCount: 1
+                      subtasksCount: 0
+                      totalPomodorosCreated: 1
+                batch_with_subtasks:
+                  value:
+                    listId: "abc123"
+                    listName: "Project X"
+                    listCreated: true
+                    tasksCreated:
+                      - id: "task-1-uuid"
+                        name: "Review proposal"
+                        iterations: 1
+                        isHighPriority: false
+                        subtasks:
+                          - id: "subtask-1-uuid"
+                            name: "Read doc"
+                            iterations: 1
+                            completed: false
+                          - id: "subtask-2-uuid"
+                            name: "Write feedback"
+                            iterations: 1
+                            completed: false
+                        completed: false
+                        createdAt: 1719321600000
+                    summary:
+                      tasksCount: 1
+                      subtasksCount: 2
+                      totalPomodorosCreated: 3
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                invalid_batch_size:
+                  value:
+                    error: "BATCH_SIZE_EXCEEDED"
+                    message: "Maximum 50 tasks per request. Received 75."
+                    correlationId: "550e8400-e29b-41d4-a716-446655440000"
+                list_not_found:
+                  value:
+                    error: "LIST_NOT_FOUND"
+                    message: "List 'Shopping' not found. Set createListIfMissing=true to auto-create."
+                    field: "listName"
+                    received: "Shopping"
+                    correlationId: "550e8400-e29b-41d4-a716-446655440000"
+                invalid_iterations:
+                  value:
+                    error: "INVALID_ITERATIONS"
+                    message: "iterations must be a positive integer"
+                    field: "tasks[0].iterations"
+                    received: "abc"
+                    correlationId: "550e8400-e29b-41d4-a716-446655440000"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "UNAUTHORIZED"
+                message: "Authentication required"
+                correlationId: "550e8400-e29b-41d4-a716-446655440000"
+        "500":
+          description: Server error (transaction failure, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "INTERNAL_ERROR"
+                message: "Transaction failed. Please retry."
+                correlationId: "550e8400-e29b-41d4-a716-446655440000"
+
+  /ai/lists/search:
+    get:
+      operationId: searchLists
+      summary: Search or list all task lists
+      description: |
+        Query available lists by name or retrieve all lists for the authenticated user.
+        
+        **Search Modes:**
+        - No `q` parameter: Returns all user's lists (sorted by order)
+        - `q` parameter: Exact match (case-insensitive) on list name
+        - `q` + `fuzzy=true`: Substring match on list name
+      tags:
+        - Lists
+      security:
+        - BearerAuth: []
+        - EasyAuth: []
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+          description: Search query (optional). If omitted, returns all lists.
+          example: "Shopping"
+        - name: fuzzy
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: Enable fuzzy (substring) matching instead of exact match
+          example: false
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+          description: Maximum results to return
+          example: 20
+      responses:
+        "200":
+          description: Lists retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  lists:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ListResponse"
+                  query:
+                    type: string
+                    nullable: true
+                    description: Search query that was used (null if no search)
+                  matchType:
+                    type: string
+                    enum:
+                      - all
+                      - exact
+                      - fuzzy
+                    description: Type of matching applied
+                  resultCount:
+                    type: integer
+                    description: Number of results returned
+              examples:
+                all_lists:
+                  value:
+                    lists:
+                      - id: "abc123"
+                        name: "Shopping"
+                        createdAt: 1719321600000
+                        color: "#FF5733"
+                        order: 1
+                        pinned: true
+                        taskCount: 5
+                      - id: "def456"
+                        name: "Work"
+                        createdAt: 1719221600000
+                        color: "#3366FF"
+                        order: 2
+                        pinned: false
+                        taskCount: 12
+                    query: null
+                    matchType: "all"
+                    resultCount: 2
+                exact_match:
+                  value:
+                    lists:
+                      - id: "abc123"
+                        name: "Shopping"
+                        createdAt: 1719321600000
+                        color: "#FF5733"
+                        order: 1
+                        pinned: true
+                        taskCount: 5
+                    query: "Shopping"
+                    matchType: "exact"
+                    resultCount: 1
+        "400":
+          description: Invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "INVALID_QUERY"
+                message: "limit must be between 1 and 100"
+                received: 150
+                correlationId: "550e8400-e29b-41d4-a716-446655440000"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "UNAUTHORIZED"
+                message: "Authentication required"
+                correlationId: "550e8400-e29b-41d4-a716-446655440000"
+
+security:
+  - BearerAuth: []
+  - EasyAuth: []
+
+tags:
+  - name: Tasks
+    description: Task creation and management
+  - name: Lists
+    description: List lookup and search

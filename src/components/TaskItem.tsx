@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { Task, Subtask, RecurrenceSettings } from '@/lib/types'
+import { Task, Subtask, RecurrenceSettings, TaskList } from '@/lib/types'
 import { calculateTaskIterations, formatTimeDisplay, calculateTotalTime, formatRecurrenceDescription, getTimeUntilReactivation } from '@/lib/timer-utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -44,6 +44,9 @@ interface TaskItemProps {
   canMoveUp?: boolean
   canMoveDown?: boolean
   otherTasks?: Task[]
+  targetTaskLists?: TaskList[]
+  onMoveTaskToList?: (targetListId: string) => void
+  onCopyTaskToList?: (targetListId: string) => void
   onMoveSubtaskToTask?: (subtaskId: string, targetTaskId: string) => void
   onCopySubtaskToTask?: (subtaskId: string, targetTaskId: string) => void
 }
@@ -451,6 +454,9 @@ export function TaskItem({
   canMoveUp = false,
   canMoveDown = false,
   otherTasks = [],
+  targetTaskLists = [],
+  onMoveTaskToList,
+  onCopyTaskToList,
   onMoveSubtaskToTask,
   onCopySubtaskToTask
 }: TaskItemProps) {
@@ -463,6 +469,8 @@ export function TaskItem({
   const [showRecurrenceDialog, setShowRecurrenceDialog] = useState(false)
   const [subtaskToMove, setSubtaskToMove] = useState<string | null>(null)
   const [subtaskToCopy, setSubtaskToCopy] = useState<string | null>(null)
+  const [showMoveTaskDialog, setShowMoveTaskDialog] = useState(false)
+  const [showCopyTaskDialog, setShowCopyTaskDialog] = useState(false)
   const subtaskInputRef = useRef<HTMLTextAreaElement>(null)
   const editorIdRef = useRef(`task-edit-${task.id}`)
 
@@ -922,6 +930,19 @@ export function TaskItem({
                   </>
                 )}
                 <DropdownMenuItem
+                  onClick={() => setShowMoveTaskDialog(true)}
+                  disabled={!onMoveTaskToList || targetTaskLists.length === 0}
+                >
+                  Move to list...
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setShowCopyTaskDialog(true)}
+                  disabled={!onCopyTaskToList || targetTaskLists.length === 0}
+                >
+                  Copy to list...
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
                   onClick={onDelete}
                   className="text-destructive focus:text-destructive"
                 >
@@ -1061,6 +1082,68 @@ export function TaskItem({
         recurrence={task.recurrence}
         onSave={handleSaveRecurrence}
       />
+
+      <AlertDialog open={showMoveTaskDialog} onOpenChange={setShowMoveTaskDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Move task to list</AlertDialogTitle>
+            <AlertDialogDescription>
+              Select a list to move this task to:
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="max-h-64 overflow-y-auto space-y-2">
+            {targetTaskLists.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4">No other lists available</p>
+            ) : (
+              targetTaskLists.map((list) => (
+                <Button
+                  key={list.id}
+                  variant="outline"
+                  className="w-full justify-start text-left"
+                  onClick={() => {
+                    onMoveTaskToList?.(list.id)
+                    setShowMoveTaskDialog(false)
+                  }}
+                >
+                  {list.name}
+                </Button>
+              ))
+            )}
+          </div>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showCopyTaskDialog} onOpenChange={setShowCopyTaskDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Copy task to list</AlertDialogTitle>
+            <AlertDialogDescription>
+              Select a list to copy this task to:
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="max-h-64 overflow-y-auto space-y-2">
+            {targetTaskLists.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4">No other lists available</p>
+            ) : (
+              targetTaskLists.map((list) => (
+                <Button
+                  key={list.id}
+                  variant="outline"
+                  className="w-full justify-start text-left"
+                  onClick={() => {
+                    onCopyTaskToList?.(list.id)
+                    setShowCopyTaskDialog(false)
+                  }}
+                >
+                  {list.name}
+                </Button>
+              ))
+            )}
+          </div>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {subtaskToMove && (
         <AlertDialog open={!!subtaskToMove} onOpenChange={(open) => !open && setSubtaskToMove(null)}>

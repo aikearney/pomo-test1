@@ -2,8 +2,8 @@ import crypto from "node:crypto";
 import express, { type Request, type Response, type NextFunction, type RequestHandler } from "express";
 import path from "node:path";
 import { v4 as uuid } from "uuid";
-import { getUserId } from "./shared/auth";
-import { getListsContainer, getTasksContainer, getUserPreferencesContainer } from "./shared/cosmos";
+import { getUserId, getUserIdFromRequest, type AuthContext } from "./shared/auth";
+import { getListsContainer, getTasksContainer, getUserPreferencesContainer, createTasksBatch } from "./shared/cosmos";
 
 const app = express();
 const port = Number(process.env.PORT ?? process.env.API_PORT ?? 7071);
@@ -23,6 +23,116 @@ app.get("/api/healthz", (_req, res) => {
 
 const USER_ID_FILTER = "(c.userId = @userId OR c.userid = @userId)";
 const USER_PREFERENCES_DOC_ID = "preferences";
+
+/**
+ * Strict validation for task batch.
+ * Returns validation errors (no silent coercion).
+ */
+interface ValidationError {
+	valid: boolean;
+	errors: string[];
+}
+
+function validateTaskBatch(
+	tasks: any[],
+	options: { allowListCreation: boolean },
+): ValidationError {
+	const errors: string[] = [];
+
+	// Validate batch size (1-50 tasks)
+	if (!Array.isArray(tasks)) {
+		errors.push("tasks must be an array");
+		return { valid: false, errors };
+	}
+
+	if (tasks.length < 1) {
+		errors.push("tasks must contain at least 1 task");
+	} else if (tasks.length > 50) {
+		errors.push(`tasks batch exceeds maximum size of 50 (received ${tasks.length})`);
+	}
+
+	if (errors.length > 0) {
+		return { valid: false, errors };
+	}
+
+	// Validate each task (all-or-nothing)
+	for (let i = 0; i < tasks.length; i++) {
+		const task = tasks[i];
+
+		// Task name validation
+		if (typeof task.name !== "string" || !task.name.trim()) {
+			errors.push(`tasks[${i}].name is required and must be non-empty`);
+		} else if (task.name.length > 500) {
+			errors.push(`tasks[${i}].name must not exceed 500 characters (received ${task.name.length})`);
+		}
+
+		// Iterations validation: must be positive integer 1-100, NO silent coercion
+		if (task.hasOwnProperty("iterations")) {
+			const iterValue = task.iterations;
+			const iterNum = Number(iterValue);
+
+			if (!Number.isFinite(iterNum)) {
+				errors.push(
+					`tasks[${i}].iterations must be a number (received ${typeof iterValue}: ${JSON.stringify(iterValue)})`,
+				);
+			} else if (!Number.isInteger(iterNum)) {
+				errors.push(
+					`tasks[${i}].iterations must be an integer, not a decimal (received ${iterValue})`,
+				);
+			} else if (iterNum < 1 || iterNum > 100) {
+				errors.push(
+					`tasks[${i}].iterations must be between 1 and 100 (received ${iterNum})`,
+				);
+			}
+		}
+
+		// Subtasks validation
+		if (task.hasOwnProperty("subtasks")) {
+			if (!Array.isArray(task.subtasks)) {
+				errors.push(`tasks[${i}].subtasks must be an array`);
+			} else if (task.subtasks.length > 20) {
+				errors.push(
+					`tasks[${i}].subtasks exceeds maximum of 20 (received ${task.subtasks.length})`,
+				);
+			} else {
+				// Validate each subtask
+				for (let j = 0; j < task.subtasks.length; j++) {
+					const subtask = task.subtasks[j];
+
+					if (typeof subtask.name !== "string" || !subtask.name.trim()) {
+						errors.push(`tasks[${i}].subtasks[${j}].name is required and must be non-empty`);
+					} else if (subtask.name.length > 500) {
+						errors.push(
+							`tasks[${i}].subtasks[${j}].name must not exceed 500 characters (received ${subtask.name.length})`,
+						);
+					}
+
+					// Subtask iterations validation: strict, no coercion
+					if (subtask.hasOwnProperty("iterations")) {
+						const subIterValue = subtask.iterations;
+						const subIterNum = Number(subIterValue);
+
+						if (!Number.isFinite(subIterNum)) {
+							errors.push(
+								`tasks[${i}].subtasks[${j}].iterations must be a number (received ${typeof subIterValue}: ${JSON.stringify(subIterValue)})`,
+							);
+						} else if (!Number.isInteger(subIterNum)) {
+							errors.push(
+								`tasks[${i}].subtasks[${j}].iterations must be an integer (received ${subIterValue})`,
+							);
+						} else if (subIterNum < 1 || subIterNum > 100) {
+							errors.push(
+								`tasks[${i}].subtasks[${j}].iterations must be between 1 and 100 (received ${subIterNum})`,
+							);
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return { valid: errors.length === 0, errors };
+}
 
 function getHeaderValue(req: Request, name: string): string | undefined {
   const direct = req.headers[name.toLowerCase()];
@@ -579,6 +689,305 @@ app.delete("/api/tasks/:id", asyncHandler(async (req, res) => {
   res.status(204).send();
 }));
 
+/**
+ * GET /api/ai/lists/search
+ * Search for task lists by name or retrieve all lists.
+ * Supports both Bearer JWT and Easy Auth.
+ */
+app.get("/api/ai/lists/search", asyncHandler(async (req, res) => {
+  const authContext = getUserIdFromRequest(req);
+  if (!authContext) {
+    res.status(401).json({ error: "UNAUTHORIZED", message: "Authentication required" });
+    return;
+  }
+
+  const userId = authContext.userId;
+  console.log(`[API] GET /api/ai/lists/search - authMode=${authContext.authMode}, userId=${userId}`);
+
+  const searchQuery = typeof req.query.q === "string" ? req.query.q.trim() : undefined;
+  const fuzzyMode = req.query.fuzzy === "true";
+  const limitParam = Number(req.query.limit ?? 10);
+
+  // Validate limit
+  if (!Number.isFinite(limitParam) || limitParam < 1 || limitParam > 100) {
+    res.status(400).json({
+      error: "INVALID_QUERY",
+      message: "limit must be between 1 and 100",
+      received: req.query.limit,
+    });
+    return;
+  }
+
+  const lists = getListsContainer();
+  const query = `SELECT * FROM c WHERE ${USER_ID_FILTER} ORDER BY c.order ASC`;
+  const { resources: allLists } = await lists.items
+    .query({
+      query,
+      parameters: [{ name: "@userId", value: userId }],
+    })
+    .fetchAll();
+
+  let filteredLists = allLists;
+  let matchType = "all";
+
+  // Apply search filter if query provided
+  if (searchQuery) {
+    if (fuzzyMode) {
+      // Fuzzy matching: substring match (case-insensitive)
+      const queryLower = searchQuery.toLowerCase();
+      filteredLists = allLists.filter((list: any) =>
+        list.name?.toLowerCase().includes(queryLower)
+      );
+      matchType = "fuzzy";
+    } else {
+      // Exact match (case-insensitive)
+      const queryLower = searchQuery.toLowerCase();
+      filteredLists = allLists.filter((list: any) =>
+        list.name?.toLowerCase() === queryLower
+      );
+      matchType = "exact";
+    }
+  }
+
+  // Limit results
+  const results = filteredLists.slice(0, limitParam);
+
+  // Get task counts for each list
+  const tasks = getTasksContainer();
+  const listsWithCounts = await Promise.all(
+    results.map(async (list: any) => {
+      const taskQuery = `SELECT VALUE COUNT(1) FROM c WHERE (c.userId = @userId OR c.userid = @userId) AND c.listId = @listId`;
+      const { resources: countResult } = await tasks.items
+        .query({
+          query: taskQuery,
+          parameters: [
+            { name: "@userId", value: userId },
+            { name: "@listId", value: list.id },
+          ],
+        })
+        .fetchAll();
+
+      const taskCount = countResult?.[0] ?? 0;
+
+      return {
+        id: list.id,
+        name: list.name,
+        createdAt: list.createdAt,
+        color: list.color || null,
+        order: list.order,
+        pinned: list.pinned,
+        taskCount,
+      };
+    })
+  );
+
+  res.status(200).json({
+    lists: listsWithCounts,
+    query: searchQuery || null,
+    matchType,
+    resultCount: listsWithCounts.length,
+  });
+}));
+
+/**
+ * POST /api/ai/tasks
+ * Create one or more tasks with optional list auto-creation.
+ * Supports both Bearer JWT and Easy Auth.
+ * Uses atomic transactional batch for all-or-nothing creation.
+ */
+app.post("/api/ai/tasks", asyncHandler(async (req, res) => {
+  const authContext = getUserIdFromRequest(req);
+  if (!authContext) {
+    res.status(401).json({ error: "UNAUTHORIZED", message: "Authentication required" });
+    return;
+  }
+
+  const userId = authContext.userId;
+  const requestId = crypto.randomUUID?.() || uuid();
+  console.log(`[API] POST /api/ai/tasks - authMode=${authContext.authMode}, userId=${userId}, requestId=${requestId}`);
+
+  const body = req.body ?? {};
+
+  // --- VALIDATION: Parse and validate request ---
+
+  // Run strict validation (no silent coercion)
+  const validation = validateTaskBatch(body.tasks || [], { allowListCreation: true });
+  if (!validation.valid) {
+    console.warn(`[API] Validation failed: ${validation.errors.join("; ")}`);
+    res.status(400).json({
+      error: "INVALID_REQUEST",
+      message: validation.errors[0],
+      allErrors: validation.errors,
+      correlationId: requestId,
+    });
+    return;
+  }
+
+  // --- RESOLVE LIST ---
+
+  const lists = getListsContainer();
+  let resolvedListId: string;
+  let resolvedListName: string;
+  let listCreated = false;
+
+  const providedListId = body.listId;
+  const providedListName = typeof body.listName === "string" ? body.listName.trim() : undefined;
+  const createListIfMissing = body.createListIfMissing === true;
+
+  if (providedListId) {
+    console.log(`[API] Resolving list by ID: ${providedListId}`);
+    try {
+      const { resource: list } = await lists.item(providedListId, userId).read();
+      if (!list) {
+        console.warn(`[API] List not found: ${providedListId}`);
+        res.status(400).json({
+          error: "LIST_NOT_FOUND",
+          message: `List with ID '${providedListId}' not found`,
+          correlationId: requestId,
+        });
+        return;
+      }
+      resolvedListId = list.id;
+      resolvedListName = list.name;
+    } catch (err: any) {
+      console.warn(`[API] Error reading list ${providedListId}: ${err.message}`);
+      res.status(400).json({
+        error: "LIST_NOT_FOUND",
+        message: `List with ID '${providedListId}' not found`,
+        correlationId: requestId,
+      });
+      return;
+    }
+  } else if (providedListName) {
+    console.log(`[API] Resolving list by name: ${providedListName}`);
+    const queryName = providedListName.toLowerCase();
+    const listQuery = `SELECT * FROM c WHERE (c.userId = @userId OR c.userid = @userId) AND LOWER(c.name) = @name`;
+    const { resources: matchingLists } = await lists.items
+      .query({
+        query: listQuery,
+        parameters: [
+          { name: "@userId", value: userId },
+          { name: "@name", value: queryName },
+        ],
+      })
+      .fetchAll();
+
+    if (matchingLists.length > 0) {
+      console.log(`[API] Found existing list: ${matchingLists[0].id}`);
+      resolvedListId = matchingLists[0].id;
+      resolvedListName = matchingLists[0].name;
+    } else if (createListIfMissing) {
+      console.log(`[API] Auto-creating list: ${providedListName}`);
+      const newList = {
+        id: uuid(),
+        userId,
+        userid: userId,
+        name: providedListName,
+        createdAt: Date.now(),
+        color: null,
+        order: Date.now(),
+        pinned: false,
+      };
+      await lists.items.create(newList);
+      resolvedListId = newList.id;
+      resolvedListName = newList.name;
+      listCreated = true;
+    } else {
+      console.warn(`[API] List not found and auto-create disabled: ${providedListName}`);
+      res.status(400).json({
+        error: "LIST_NOT_FOUND",
+        message: `List '${providedListName}' not found. Set createListIfMissing=true to auto-create.`,
+        listName: providedListName,
+        correlationId: requestId,
+      });
+      return;
+    }
+  } else {
+    console.warn(`[API] Neither listId nor listName provided`);
+    res.status(400).json({
+      error: "INVALID_REQUEST",
+      message: "Either listId or listName must be provided",
+      field: "listId or listName",
+      correlationId: requestId,
+    });
+    return;
+  }
+
+  // --- CREATE TASKS ATOMICALLY ---
+
+  console.log(`[API] Creating ${body.tasks.length} tasks in atomic batch for listId=${resolvedListId}`);
+
+  const batchResult = await createTasksBatch(userId, body.tasks, resolvedListId);
+
+  if (!batchResult.success) {
+    console.error(`[API] Batch creation failed: ${batchResult.error} - ${batchResult.rollbackDetails}`);
+    res.status(500).json({
+      error: batchResult.error || "TRANSACTION_FAILED",
+      message: "Task creation failed. Transaction rolled back.",
+      details: batchResult.rollbackDetails,
+      correlationId: requestId,
+    });
+    return;
+  }
+
+  // --- BUILD RESPONSE ---
+
+  const tasks = getTasksContainer();
+  const createdTaskIds = batchResult.taskIds || [];
+
+  // Fetch created tasks to return full response
+  const createdTasks = [];
+  let totalSubtasks = 0;
+  let totalPomodoros = 0;
+
+  for (let i = 0; i < body.tasks.length; i++) {
+    const taskInput = body.tasks[i];
+    const taskIterations = Number.isFinite(Number(taskInput.iterations)) && Number(taskInput.iterations) > 0
+      ? Math.floor(Number(taskInput.iterations))
+      : 1;
+
+    const processedSubtasks = Array.isArray(taskInput.subtasks)
+      ? taskInput.subtasks.map((subtask: any) => ({
+          name: subtask.name,
+          iterations: Number.isFinite(Number(subtask.iterations)) && Number(subtask.iterations) > 0
+            ? Math.floor(Number(subtask.iterations))
+            : 1,
+          completed: false,
+        }))
+      : [];
+
+    createdTasks.push({
+      id: createdTaskIds[i],
+      name: taskInput.name,
+      iterations: taskIterations,
+      isHighPriority: taskInput.isHighPriority === true,
+      subtasks: processedSubtasks,
+      completed: false,
+      createdAt: Date.now(),
+    });
+
+    totalSubtasks += processedSubtasks.length;
+    totalPomodoros += taskIterations + processedSubtasks.reduce((sum: number, st: any) => sum + st.iterations, 0);
+  }
+
+  console.log(
+    `[API] Successfully created ${createdTasks.length} tasks with ${totalSubtasks} subtasks (${totalPomodoros} total pomodoros)`,
+  );
+
+  res.status(201).json({
+    listId: resolvedListId,
+    listName: resolvedListName,
+    listCreated,
+    tasksCreated: createdTasks,
+    summary: {
+      tasksCount: createdTasks.length,
+      subtasksCount: totalSubtasks,
+      totalPomodorosCreated: totalPomodoros,
+    },
+    correlationId: requestId,
+  });
+}));
+
 app.use("/api", (_req, res) => {
   res.status(404).send("Not found");
 });
@@ -758,7 +1167,13 @@ app.get("*", (_req, res) => {
   });
 });
 
-app.listen(port, () => {
-  console.log(`Server listening on http://localhost:${port}`);
-  console.log(`Serving frontend assets from: ${frontendDistPath}`);
-});
+// Export the app for testing
+export default app;
+
+// Only start listening if not in test environment
+if (process.env.NODE_ENV !== "test") {
+  app.listen(port, () => {
+    console.log(`Server listening on http://localhost:${port}`);
+    console.log(`Serving frontend assets from: ${frontendDistPath}`);
+  });
+}
