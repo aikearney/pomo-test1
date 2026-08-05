@@ -22,7 +22,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { CaretDown, CaretRight, Plus, Trash, PlayCircle, CaretUp, Star, ArrowClockwise, DotsThree } from '@phosphor-icons/react'
+import { CaretDown, CaretRight, Plus, Trash, PlayCircle, CaretUp, Star, ArrowClockwise, DotsThree, CheckCircle, Circle } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
 import { RecurrenceDialog } from '@/components/RecurrenceDialog'
 
@@ -478,6 +478,7 @@ export function TaskItem({
   const [showMoveTaskDialog, setShowMoveTaskDialog] = useState(false)
   const [showCopyTaskDialog, setShowCopyTaskDialog] = useState(false)
   const subtaskInputRef = useRef<HTMLTextAreaElement>(null)
+  const taskItemRef = useRef<HTMLDivElement>(null)
   const editorIdRef = useRef(`task-edit-${task.id}`)
 
   const resizeTextarea = (element: HTMLTextAreaElement | null) => {
@@ -489,6 +490,15 @@ export function TaskItem({
   useEffect(() => {
     resizeTextarea(subtaskInputRef.current)
   }, [subtaskName, isAddingSubtask])
+
+  useEffect(() => {
+    if (!isSourceTarget || task.collapsed) return
+
+    const frameId = window.requestAnimationFrame(() => {
+      taskItemRef.current?.scrollIntoView({ block: 'nearest' })
+    })
+    return () => window.cancelAnimationFrame(frameId)
+  }, [isSourceTarget, task.collapsed])
 
   const totalIterations = calculateTaskIterations(task)
   const timeCalc = calculateTotalTime(totalIterations)
@@ -733,37 +743,29 @@ export function TaskItem({
                 <span>{task.subtasks.length} {task.subtasks.length === 1 ? 'subtask' : 'subtasks'}</span>
               )}
             </div>
+            {task.subtasks.length > 0 && (
+              <ul className="mt-2 space-y-1 border-t border-border/60 pt-2">
+                {task.subtasks.map((subtask) => (
+                  <li key={subtask.id} className="flex items-start gap-2 min-w-0 text-xs text-muted-foreground">
+                    {subtask.completed ? (
+                      <CheckCircle size={15} weight="fill" className="mt-0.5 shrink-0 text-accent" aria-hidden="true" />
+                    ) : (
+                      <Circle size={15} className="mt-0.5 shrink-0" aria-hidden="true" />
+                    )}
+                    <span className="sr-only">{subtask.completed ? 'Completed' : 'Incomplete'}: </span>
+                    <span className="min-w-0 flex-1">
+                      <span className={cn('block break-words [overflow-wrap:anywhere]', subtask.completed && 'line-through')}>
+                        {subtask.name}
+                      </span>
+                      <span className="block text-[10px] leading-tight text-muted-foreground/80">
+                        {subtask.iterations} {subtask.iterations === 1 ? 'iteration' : 'iterations'}
+                      </span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
-          {onTouchReorder && (
-            <div className="flex items-center gap-1 shrink-0">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={(event) => {
-                  event.stopPropagation()
-                  onTouchReorder('up')
-                }}
-                disabled={!canMoveUp}
-                title="Move task up"
-              >
-                <CaretUp size={14} />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={(event) => {
-                  event.stopPropagation()
-                  onTouchReorder('down')
-                }}
-                disabled={!canMoveDown}
-                title="Move task down"
-              >
-                <CaretDown size={14} />
-              </Button>
-            </div>
-          )}
         </div>
       </div>
     )
@@ -771,6 +773,7 @@ export function TaskItem({
 
   return (
     <div
+      ref={taskItemRef}
       draggable={Boolean(onDragStart || onDrop)}
       onDragStart={(e) => {
         e.stopPropagation()
@@ -791,6 +794,7 @@ export function TaskItem({
         isActive ? 'border-accent bg-accent/5 ring-2 ring-accent/20' : 'border-border bg-card',
         task.completed && 'opacity-60',
         task.isHighPriority && !task.completed && 'border-primary bg-primary/5',
+        isSourceTarget && 'ring-2 ring-accent/40',
         isDragging && 'opacity-50',
         isDragOver && 'ring-2 ring-primary/30'
       )}

@@ -1380,7 +1380,8 @@ function App() {
     if (
       !sourceTaskSelection ||
       currentTaskListId !== sourceTaskSelection.listId ||
-      isLoadingTasks
+      isLoadingTasks ||
+      loadedTasksListIdRef.current !== sourceTaskSelection.listId
     ) {
       return
     }
@@ -1388,19 +1389,27 @@ function App() {
     const sourceTask = (tasks || []).find(
       (task) =>
         task.id === sourceTaskSelection.taskId &&
-        task.listId === sourceTaskSelection.listId
+        (!task.listId || task.listId === sourceTaskSelection.listId)
     )
-    if (!sourceTask || !sourceTask.collapsed) return
+    if (!sourceTask) return
+
+    if (!sourceTask.collapsed) {
+      setSourceTaskSelection(null)
+      return
+    }
 
     setTasks((currentTasks) =>
       (currentTasks || []).map((task) =>
         task.id === sourceTaskSelection.taskId &&
-        task.listId === sourceTaskSelection.listId
+        (!task.listId || task.listId === sourceTaskSelection.listId)
           ? { ...task, collapsed: false }
           : task
       )
     )
     setAllTasksCollapsed(false)
+    if (sourceTask.completed) {
+      setCompletedTasksCollapsed(false)
+    }
   }, [currentTaskListId, isLoadingTasks, sourceTaskSelection, tasks])
 
   useEffect(() => {
@@ -1494,6 +1503,14 @@ function App() {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [currentTaskListId, isAnonymousMode])
+
+  const highPriorityListLoadKey =
+    currentTaskListId === HIGH_PRIORITY_LIST_ID
+      ? (taskLists || [])
+          .filter((list) => !list.archived)
+          .map((list) => list.id)
+          .join('|')
+      : ''
 
   // Load tasks when current list changes
   useEffect(() => {
@@ -1610,7 +1627,7 @@ function App() {
     return () => {
       cancelled = true
     }
-  }, [currentTaskListId, isAnonymousMode, refreshNonce, taskLists])
+  }, [currentTaskListId, highPriorityListLoadKey, isAnonymousMode, refreshNonce])
 
 
   const currentTaskList =
@@ -1899,7 +1916,7 @@ function App() {
             }))
       )
       setTasks(hydratedTasks)
-      loadedTasksListIdRef.current = listId
+      loadedTasksListIdRef.current = null
     } else {
       setTasks((currentTasks) =>
         (currentTasks || []).map((task) => ({ ...task, collapsed: true }))
