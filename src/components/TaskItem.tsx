@@ -477,6 +477,7 @@ export function TaskItem({
   const [subtaskToCopy, setSubtaskToCopy] = useState<string | null>(null)
   const [showMoveTaskDialog, setShowMoveTaskDialog] = useState(false)
   const [showCopyTaskDialog, setShowCopyTaskDialog] = useState(false)
+  const [showReadOnlySubtasks, setShowReadOnlySubtasks] = useState(false)
   const subtaskInputRef = useRef<HTMLTextAreaElement>(null)
   const taskItemRef = useRef<HTMLDivElement>(null)
   const editorIdRef = useRef(`task-edit-${task.id}`)
@@ -708,34 +709,56 @@ export function TaskItem({
 
   if (readOnly) {
     const handleOpenSource = () => onOpenSource?.()
+    const subtaskVisibilityLabel = `${showReadOnlySubtasks ? 'Hide' : 'Show'} subtasks for ${task.name}`
+    const sourceNavigationLabel = `Open ${task.name} in its source list`
+    const hasReadOnlyReorder = Boolean(onTouchReorder || onMoveUp || onMoveDown)
 
     return (
       <div
-        role="button"
-        tabIndex={0}
-        onClick={handleOpenSource}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault()
-            handleOpenSource()
-          }
-        }}
         className={cn(
-          'cursor-pointer border rounded-lg p-2.5 sm:p-3 transition-colors max-w-full overflow-x-hidden hover:border-accent hover:bg-accent/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40',
+          'border rounded-lg p-2.5 sm:p-3 transition-colors max-w-full overflow-x-hidden hover:border-accent hover:bg-accent/5',
           task.completed && 'opacity-60',
           task.isHighPriority && !task.completed && 'border-primary bg-primary/5',
           isSourceTarget && 'ring-2 ring-accent/40'
         )}
-        aria-label={`Open ${task.name} in its source list`}
       >
         <div className="flex items-start gap-2 min-w-0">
+          {task.subtasks.length > 0 ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 shrink-0"
+              aria-label={subtaskVisibilityLabel}
+              aria-expanded={showReadOnlySubtasks}
+              title={subtaskVisibilityLabel}
+              onClick={() => setShowReadOnlySubtasks((isVisible) => !isVisible)}
+            >
+              {showReadOnlySubtasks ? (
+                <CaretDown size={16} aria-hidden="true" />
+              ) : (
+                <CaretRight size={16} aria-hidden="true" />
+              )}
+            </Button>
+          ) : (
+            <span className="h-7 w-7 shrink-0" aria-hidden="true" />
+          )}
           {task.isHighPriority && !task.completed && (
             <Star size={16} weight="fill" className="text-primary mt-0.5 shrink-0" />
           )}
           <div className="min-w-0 flex-1">
-            <p className={cn('font-medium text-base md:text-sm break-words [overflow-wrap:anywhere]', task.completed && 'line-through text-muted-foreground')}>
-              {task.name}
-            </p>
+            <button
+              type="button"
+              className={cn(
+                'block w-full min-w-0 text-left font-medium text-base md:text-sm break-words [overflow-wrap:anywhere] hover:text-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40',
+                task.completed && 'line-through text-muted-foreground'
+              )}
+              onClick={handleOpenSource}
+              aria-label={sourceNavigationLabel}
+              title={sourceNavigationLabel}
+            >
+                {task.name}
+            </button>
             <div className="mt-1 flex items-center gap-2 flex-wrap text-[10px] md:text-xs text-muted-foreground">
               <span>{totalIterations} {totalIterations === 1 ? 'iteration' : 'iterations'}</span>
               <span>{formatTimeDisplay(timeCalc.days, timeCalc.hours, timeCalc.minutes)}</span>
@@ -743,7 +766,7 @@ export function TaskItem({
                 <span>{task.subtasks.length} {task.subtasks.length === 1 ? 'subtask' : 'subtasks'}</span>
               )}
             </div>
-            {task.subtasks.length > 0 && (
+            {task.subtasks.length > 0 && showReadOnlySubtasks && (
               <ul className="mt-2 space-y-1 border-t border-border/60 pt-2">
                 {task.subtasks.map((subtask) => (
                   <li key={subtask.id} className="flex items-start gap-2 min-w-0 text-xs text-muted-foreground">
@@ -766,6 +789,34 @@ export function TaskItem({
               </ul>
             )}
           </div>
+          {hasReadOnlyReorder && (
+            <div className="flex shrink-0 items-center gap-1">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={handleMoveUp}
+                className="h-8 w-8"
+                disabled={!canMoveUp}
+                aria-label="Move task up"
+                title="Move task up"
+              >
+                <CaretUp size={16} aria-hidden="true" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={handleMoveDown}
+                className="h-8 w-8"
+                disabled={!canMoveDown}
+                aria-label="Move task down"
+                title="Move task down"
+              >
+                <CaretDown size={16} aria-hidden="true" />
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     )

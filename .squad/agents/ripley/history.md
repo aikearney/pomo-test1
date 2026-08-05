@@ -42,3 +42,11 @@ if (hasOwnProperty(prefs, 'backgroundImage') &&
 1. **Dependency arrays create invisible races** — effects can silently reset state when auth changes; verify effects don't trigger unintended nulling
 2. **Validate API responses before coercion** — absent properties (undefined) differ from null; use strict type guards, not ?? coalescing
 3. **Multi-source state needs clear hierarchy** — establish which layer owns each value (local cache vs server), then defend the boundary
+
+## Read-Only High-Priority Task Disclosure (2026-08-05)
+
+- Read-only task cards must remain structural containers; source navigation and subtask disclosure are sibling native buttons, never nested within a card-wide interactive ancestor.
+- Disclosure state is local UI state initialized visible and only controls subtask rendering; task metadata and aggregate data remain unchanged and visible.
+- Task-specific `aria-label`, `aria-expanded`, and `title` attributes keep source navigation and disclosure distinct for keyboard and assistive-technology users.
+- Match editable list geometry with a fixed leading disclosure slot; keep source navigation on the title and reorder controls at the right edge, using explicit boundary props for disabled states.
+- Read-only subtask disclosure initializes collapsed per card; users explicitly expand groups with the leading chevron while metadata and subtask counts remain visible.
